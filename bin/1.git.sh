@@ -6,16 +6,16 @@ set -e
 # run from Documents
 
 # Hardcoded directory containing documents to push
-TARGET_DIR="/Users/mymac/Desktop/frob/bashful-backup"
+TARGET_DIR="/Users/mymac/Desktop/captions"
 
 # Repository Name
-REPO_NAME="bashful-backup"
+REPO_NAME="captions"
 
 # PAT file location
-PAT_FILE="/Users/mymac/Documents/.github_pat"
+PAT_FILE="/Users/mymac/Desktop/git_pat.json"
 
 # Log file desktop
-LOG_FILE="Users/mymac/Desktop//backup.log"
+LOG_FILE="/Users/mymac/Desktop/backup.log"
 
 # Check if the PAT file exists and is readable
 if [ ! -f "$PAT_FILE" ]; then

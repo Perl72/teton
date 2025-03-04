@@ -9,8 +9,9 @@ use File::stat;
 use File::Basename;
 use FindBin;
 use POSIX qw(strftime);
+use JSON;
 
-our $VERSION = '0.03';
+our $VERSION = '0.05';
 
 sub new {
     my ($class) = @_;
@@ -19,26 +20,33 @@ sub new {
 
 
 
-# Determine the Python interpreter path based on uname
+# Load the JSON configuration file
+sub _load_config {
+    my $config_file = File::Spec->catfile($FindBin::Bin, '..', 'conf', 'config.json');
+    open my $fh, '<', $config_file or die "Unable to open config file $config_file: $!\n";
+    my $json_text = do { local $/; <$fh> };
+    close $fh;
+
+    my $config = decode_json($json_text);
+    return $config;
+}
+
+# Get configuration for the current OS
+sub _get_os_config {
+    my $config = _load_config();
+    my $osname = qx(uname -s);
+    chomp($osname);
+
+    die "Unsupported operating system: $osname\n" unless exists $config->{$osname};
+    return $config->{$osname};
+}
+
+# Determine the Python interpreter path dynamically
 sub _get_python_path {
     my ($class) = @_;
+    my $os_config = _get_os_config();
+    my $python_path = $os_config->{python_path};
 
-    # Run `uname` to detect the OS
-    my $osname = qx(uname -s);
-    chomp($osname);  # Remove trailing newline
-    my $python_path;
-
-    if ($osname =~ /Darwin/i) {  # macOS
-        $python_path = '/Users/mymac/miniconda3/envs/new-env/bin/python';
-    } elsif ($osname =~ /Linux/i) {  # Linux
-        # Sample path for Linux; replace with actual path as needed
-        $python_path = '/home/fritz/miniconda3/envs/new-env/bin/python';
-        print "Detected Linux: Using Python path: $python_path\n";
-    } else {
-        die "Unsupported operating system: $osname\n";
-    }
-
-    # Validate the Python path
     unless (-x $python_path) {
         die "Python interpreter not found or not executable at: $python_path\n";
     }
@@ -46,11 +54,11 @@ sub _get_python_path {
     return $python_path;
 }
 
-
 # Find the Python script path dynamically
 sub _get_script_path {
     my ($class, $script_name) = @_;
-    my $base_dir = abs_path("$FindBin::Bin/.."); # One level up from bin
+    my $os_config = _get_os_config();
+    my $base_dir = $os_config->{base_dir};
     my $script_path = File::Spec->catfile($base_dir, 'bin', $script_name);
 
     unless (-f $script_path) {
@@ -60,6 +68,7 @@ sub _get_script_path {
     return $script_path;
 }
 
+
 sub download {
     my ($class, $hyperlink) = @_;
     die "No hyperlink provided.\n" unless $hyperlink;
@@ -67,6 +76,7 @@ sub download {
     my $script_path = $class->_get_script_path("call_download.py");
     my $python_path = $class->_get_python_path();
     print "Running command: $python_path $script_path $hyperlink\n";
+    $DB::single = 1; 
     my $output;
     eval {
         $output = capturex($python_path, $script_path, $hyperlink);
@@ -88,7 +98,7 @@ sub add_watermark {
     my $script_path = $class->_get_script_path("call_watermark.py");
     my $python_path = $class->_get_python_path();
     print "Running command: $python_path $script_path $input_video\n";
-
+    $DB::single = 1; 
     my $output;
     eval {
         $output = capturex($python_path, $script_path, $input_video);
@@ -106,16 +116,38 @@ sub add_basic_captions {
     die "Input video file not provided.\n" unless $input_video;
 
 
-    my $script_path = $class->_get_script_path("call_ken.py");
+    my $script_path = $class->_get_script_path("call_captions.py");
     my $python_path = $class->_get_python_path();
     print "Running command: $python_path $script_path $input_video \n";
-
+    $DB::single = 1; 
     my $output;
     eval {
         $output = capturex($python_path, $script_path, $input_video);
     };
     if ($@) {
         die "Error adding captions with $script_path: $@\n";
+    }
+
+    chomp($output); # Remove trailing newlines from Python output
+    return $output;
+}
+
+
+# Make clips by invoking the Python make_clips script directly
+sub make_clips {
+    my ($class, $input_video) = @_;
+    die "Input video file not provided.\n" unless $input_video;
+
+    my $script_path = $class->_get_script_path("call_clips.py");  
+    my $python_path = $class->_get_python_path();
+    print "Running command: $python_path $script_path $input_video\n";
+    $DB::single = 1; 
+    my $output;
+    eval {
+        $output = capturex($python_path, $script_path, $input_video);
+    };
+    if ($@) {
+        die "Error making clips with $script_path: $@\n";
     }
 
     chomp($output); # Remove trailing newlines from Python output
