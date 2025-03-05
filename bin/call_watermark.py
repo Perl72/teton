@@ -3,11 +3,9 @@ import sys
 import json
 import logging
 import traceback
-import platform
-from datetime import datetime
+from datetime import datetime    
 
-
-## this routine needs to be locked in
+## This routine needs to be locked in
 # Load Application Configuration
 def load_app_config():
     """Load the application configuration from a JSON file."""
@@ -29,6 +27,7 @@ def load_app_config():
         return app_config
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON configuration at {config_path}: {e}")
+
 
 # Initialize Logging
 def init_logging(logging_config):
@@ -58,6 +57,21 @@ def init_logging(logging_config):
 
     logger.info("Logging initialized.")
     return logger
+
+
+def get_backup_filename(input_video_path, backup_dir):
+    """Generate a well-formed backup filename for metadata."""
+    base_name = os.path.splitext(os.path.basename(input_video_path))[0]
+    return os.path.join(backup_dir, f"{base_name}_metadata.json")
+
+
+def backup_metadata(metadata, backup_path):
+    """Save metadata to the specified backup location."""
+    os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+    with open(backup_path, "w") as file:
+        json.dump(metadata, file, indent=4)
+    logger.info(f"Metadata backup saved to: {backup_path}")
+
 
 if __name__ == "__main__":
     try:
@@ -105,9 +119,7 @@ if __name__ == "__main__":
                 data = json.load(file)
             logger.info(f"Loaded metadata from: {json_path}")
             username = data.get("uploader", "UnknownUploader")
-            # this field changes insta uses upload_date ; yt uses upload_date
             video_date = data.get("video_date", datetime.now().strftime("%Y-%m-%d"))
-            #video_date = data.get("upload_date", datetime.now().strftime("%Y-%m-%d"))
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON metadata from {json_path}: {e}")
             sys.exit(1)
@@ -131,6 +143,10 @@ if __name__ == "__main__":
         if result and "to_process" in result:
             logger.info(f"Watermarked video created successfully: {result['to_process']}")
             print(result["to_process"])
+
+            # Backup metadata
+            backup_path = get_backup_filename(input_video_path, watermark_config.get("metadata_backup_path", "./clips"))
+            backup_metadata(data, backup_path)
         else:
             logger.error("Watermarking process failed or did not return valid output.")
             sys.exit(1)
