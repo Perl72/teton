@@ -19,6 +19,7 @@
 ./t/18.download.t
 ./t/15.download.t
 ./t/22.t
+./t/23.t
 ./t/pod-coverage.t
 ./xt/boilerplate.t
 ./README.md
@@ -30,3 +31,6 @@
 ./lib/python_utils/make_clips.py
 ./conf/config.json
 ./conf/app_config.json
+./conf/cookies.txt
+./conf/cookies_formatted.txt
+
