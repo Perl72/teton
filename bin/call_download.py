@@ -53,6 +53,31 @@ def init_logging(logging_config):
     logger.info("Logging initialized.")
     return logger
 
+# Check if URL exists in clips JSON files
+def find_url_in_clips(url, clips_dir="./clips"):
+    """Search for a JSON file in the clips directory that contains the given URL."""
+    if not os.path.exists(clips_dir):
+        logging.warning(f"Clips directory not found: {clips_dir}")
+        return None, None
+
+    for filename in os.listdir(clips_dir):
+        if filename.endswith(".json"):
+            json_path = os.path.join(clips_dir, filename)
+            try:
+                with open(json_path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+
+                    # Assume JSON structure has a "url" field
+                    if isinstance(data, dict) and "url" in data and data["url"] == url:
+                        logging.info(f"URL found in {filename}")
+                        return filename, data
+
+            except (json.JSONDecodeError, IOError) as e:
+                logging.error(f"Error reading {json_path}: {e}")
+
+    logging.info("URL not found in any JSON file.")
+    return None, None
+
 # Main Function
 def main():
     try:
@@ -83,7 +108,7 @@ def main():
         if not os.path.exists(target_usb):
             logger.error(f"Error: USB drive {target_usb} is not mounted.")
             sys.exit(1)
-        
+
         if not os.path.exists(download_path):
             logger.warning(f"Download path {download_path} does not exist. Creating it now.")
             try:
@@ -98,20 +123,28 @@ def main():
 
         logger.info(f"Download directory confirmed: {download_path}")
 
-        # Prepare parameters for function calls
-        params = {
-            "download_path": download_path,
-            "cookie_path": platform_config.get("cookie_path"),
-            "url": None,
-            **platform_config.get("watermark_config", {}),
-        }
-
         # Validate URL input
         if len(sys.argv) < 2:
             logger.error("The URL is missing. Please provide a valid URL as a command-line argument.")
             sys.exit(1)
 
-        params["url"] = sys.argv[1].strip()
+        url = sys.argv[1].strip()
+
+        # Check if URL already exists in clips
+        found_file, found_data = find_url_in_clips(url)
+
+        if found_file:
+            print(f"Found in: {found_file}")
+            print(json.dumps(found_data, indent=2))
+            return
+
+        # Prepare parameters for function calls
+        params = {
+            "download_path": download_path,
+            "cookie_path": platform_config.get("cookie_path"),
+            "url": url,
+            **platform_config.get("watermark_config", {}),
+        }
 
         # Execute function calls in sequence
         function_calls = [
@@ -148,3 +181,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

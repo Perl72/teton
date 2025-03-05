@@ -3,7 +3,7 @@
         "format": "bestvideo[height<=?1080]+bestaudio/best",
         "bitrate": "5000k",
         "noplaylist": true,
-        "cookie_path": "./app/data/cookies.txt"
+        "cookie_path": "./conf/cookies.txt"
     },
     "watermark_config": {
         "font": "Arial Bold",
@@ -13,6 +13,7 @@
         "timestamp_color": "red",
         "username_position": ["left", "top"],
         "date_position": ["left", "bottom"],
+        "metadata_backup_path": "./clips",
         "timestamp_position": ["right", "bottom"]
     },
     "ken_burns": {
