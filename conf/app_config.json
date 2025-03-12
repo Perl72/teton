@@ -1,4 +1,12 @@
 {
+    "default_tasks": {
+        "perform_download": false,
+        "apply_watermark": "/home/fritz/Desktop/bashful-backup/watermarked/Tim_Ballard_20250208_watermarked.mp4",
+        "make_clips": true,
+        "extract_audio": true,
+        "generate_captions": true,
+        "post_processed": false  
+    },
     "video_download": {
         "format": "bestvideo[height<=?1080]+bestaudio/best",
         "bitrate": "5000k",
@@ -54,3 +62,4 @@
         }
     }
 }
+

@@ -55,10 +55,16 @@ def init_logging(logging_config):
 
 # Check if URL exists in clips JSON files
 def find_url_in_clips(url, clips_dir="./clips"):
-    """Search for a JSON file in the clips directory that contains the given URL."""
+    """
+    Search for a JSON file in the clips directory that contains the given URL.
+
+    :param url: The video URL to search for.
+    :param clips_dir: The directory containing clip JSON files.
+    :return: The full path to the JSON file if found, else None.
+    """
     if not os.path.exists(clips_dir):
         logging.warning(f"Clips directory not found: {clips_dir}")
-        return None, None
+        return None
 
     for filename in os.listdir(clips_dir):
         if filename.endswith(".json"):
@@ -70,13 +76,14 @@ def find_url_in_clips(url, clips_dir="./clips"):
                     # Assume JSON structure has a "url" field
                     if isinstance(data, dict) and "url" in data and data["url"] == url:
                         logging.info(f"URL found in {filename}")
-                        return filename, data
+                        return json_path  # Return the full path of the JSON file
 
             except (json.JSONDecodeError, IOError) as e:
                 logging.error(f"Error reading {json_path}: {e}")
 
     logging.info("URL not found in any JSON file.")
-    return None, None
+    return None
+
 
 # Main Function
 def main():
@@ -131,12 +138,12 @@ def main():
         url = sys.argv[1].strip()
 
         # Check if URL already exists in clips
-        found_file, found_data = find_url_in_clips(url)
+        json_path = find_url_in_clips(url)
 
-        if found_file:
-            print(f"Found in: {found_file}")
-            print(json.dumps(found_data, indent=2))
-            return
+        if json_path:
+            print(f"Found URL in the following file: {json_path}")
+            return json_path  # Return the full path of the JSON file
+
 
         # Prepare parameters for function calls
         params = {
