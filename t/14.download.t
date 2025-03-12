@@ -41,8 +41,8 @@ use Acme::Frobnitz;
 
 # URL to test the download functionality
 # my $test_url = 'https://www.youtube.com/watch?v=DAjMZ6fCPOo';
-my $test_url = 'https://www.youtube.com/watch?v=uva44yLDOCs';
-
+# my $test_url = 'https://www.youtube.com/watch?v=uva44yLDOCs'; #hutchinson ugg long
+my $test_url = 'https://www.youtube.com/watch?v=8HYsmmO4VEI&list=OLAK5uy_kFgYlxHcVFwJc_Rtv0udiuJY26uhCBtfI&index=2'; # music
 # BEGIN TESTS
 $logger->info("Starting test suite for Acme::Frobnitz");
 

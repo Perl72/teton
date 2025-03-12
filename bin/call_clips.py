@@ -1,58 +1,21 @@
-import os
 import sys
 import logging
-import subprocess
+import os
+import yaml
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+import tempfile
+import time
+import speech_recognition as sr
+from urllib.parse import urlparse
 
-
-# Set the GST_DEBUG environment variable
-os.environ['GST_DEBUG'] = '4'
-
-
-# ==================================================
-# CLIPS CONFIGURATION 
-# ==================================================
-# This dictionary contains all the necessary configuration.
-# We define the input video, output directory, and clip settings directly.
-# Global configuration for video processing with GStreamer
-gstreamer_config = {
-    "input_video_path": "data/Liberating_Humanity_Podcast_20241004_1_watermarked.mkv",  # Path to the input video
-    "clips_directory": "clips/",  # Directory where clips will be stored
-    "width": 1280,  # Video width
-    "height": 720,  # Video height
-    "font": "Arial",  # Font used for overlay text
-    "font_size": 64,  # Font size for overlay text
-    "alignment": {"horizontal": 1, "vertical": 1},  # Text alignment settings (1 = center)
-    "encoder": "x264enc",  # GStreamer encoder
-    "container_format": "mp4mux",  # Output format (e.g., MP4)
-    "text_halign": "left",  # Horizontal alignment
-    "text_valign": "center",  # Vertical alignment
-}
-
-# Clips: List of clips to process with individual properties
-clips = [
-    {
-        "start": 3,  # Clip start time (in seconds)
-        "end": 10,   # Clip end time (in seconds)
-        "text": "First clip",  # Text to overlay on the video
-        "name": "clip_1"  # Name of the clip file
-    },
-    {
-        "start": 11,
-        "end": 20,
-        "text": "Second clip",
-        "name": "clip_2"
-    }
-]
 
 # ==================================================
 # LOGGING INITIALIZATION
 # ==================================================
-# Sets up logging to both console and a log file.
-# This helps track processing steps and errors.
 def initialize_logging():
     log_dir = "./logs"
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "call_clips.log")
+    log_file = os.path.join(log_dir, "moviepy_clips.log")
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -76,98 +39,167 @@ def initialize_logging():
 
 
 # ==================================================
-# PROCESSING CLIPS WITH GSTREAMER
+# AUDIO EXTRACTION AND TRANSCRIPTION
 # ==================================================
-# Ensure the clips directory exists
+def extract_audio_from_video(video_path, start_time, end_time, temp_audio_path):
+    """Extracts audio from the video clip for the given time range."""
+    try:
+        video = VideoFileClip(video_path)
+        video = video.subclip(start_time, end_time)
+        audio_path = temp_audio_path
+        video.audio.write_audiofile(audio_path)
+        print(f"Audio extracted to {audio_path}")
+        return audio_path
+    except Exception as e:
+        print(f"Error extracting audio: {e}")
+        return None
+
+def transcribe_audio(audio_path):
+    """Transcribe the audio using speech recognition."""
+    recognizer = sr.Recognizer()
+    try:
+        with sr.AudioFile(audio_path) as source:
+            audio_data = recognizer.record(source)
+        text = recognizer.recognize_google(audio_data)
+        print(f"Transcription: {text}")
+        return text
+    except sr.UnknownValueError:
+        print("Google Speech Recognition could not understand the audio")
+        return None
+    except sr.RequestError as e:
+        print(f"Could not request results from Google Speech Recognition service; {e}")
+        return None
+
+
+
 def ensure_clips_directory(clips_directory):
     if not os.path.exists(clips_directory):
         os.makedirs(clips_directory)
-        logger.info(f"Created clips directory: {clips_directory}")
 
-# PROCESSING CLIPS WITH GSTREAMER
-def process_clips_gstreamer(gstreamer_config, clips, logger):
-    """Processes clips using GStreamer."""
-    input_video = gstreamer_config["input_video_path"]
-    clips_directory = gstreamer_config["clips_directory"]
-    font = gstreamer_config["font"]
-    font_size = gstreamer_config["font_size"]
-    width = gstreamer_config["width"]
-    height = gstreamer_config["height"]
-    text_halign = gstreamer_config["text_halign"]
-    text_valign = gstreamer_config["text_valign"]
+
+# ==================================================
+# VIDEO CLIPPING AND TEXT REPLACEMENT
+# ==================================================
+def process_video_for_clip_and_transcription(video_path, start_time, end_time, text_overlay):
+    """Extract audio, transcribe it, replace original text, and prepare the clip."""
+    # Create a temporary file for audio extraction
+    with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
+        audio_path = temp_audio_file.name + ".wav"
+
+        # Extract audio and transcribe it
+        extracted_audio = extract_audio_from_video(video_path, start_time, end_time, audio_path)
+        if extracted_audio:
+            transcription = transcribe_audio(extracted_audio)
+
+            # Clean up temporary audio file
+            os.remove(extracted_audio)
+
+            # Process the video clip with the transcription text
+            video_clip = VideoFileClip(video_path).subclip(start_time, end_time)
+
+            # If transcription exists, replace the original text with the transcribed text
+            if transcription:
+                text_overlay = transcription  # Replace the original text with transcription
+
+            # Log the new text that would be used for overlay or replacement (just for verification)
+            logger.info(f"Text overlay (or replacement) for {text_overlay}")
+
+            # No writing or saving yet, just returning the video clip
+            return video_clip, text_overlay
+        else:
+            return None, None
+
+
+def process_clips_moviepy(moviepy_config, clips, logger):
+    input_video = sys.argv[1]  # Get input video path from command line argument
+    clips_directory = moviepy_config["clips_directory"]
     
     # Log global config values
     logger.info(f"Processing video: {input_video}")
     logger.info(f"Output directory: {clips_directory}")
-    logger.info(f"Font: {font} (Size: {font_size})")
-    logger.info(f"Video Resolution: {width}x{height}")
     
     # Ensure the clips directory exists
     ensure_clips_directory(clips_directory)
+    
+    # Load the input video using moviepy
+    video_clip = VideoFileClip(input_video)
     
     # Iterate through clips and process each one
     for clip in clips:
         start, end, text, name = clip["start"], clip["end"], clip["text"], clip["name"]
         output_file = os.path.join(clips_directory, f"{name}.mp4")
         
-        # Text alignment settings based on configuration
-        halignment = text_halign  # left, center, right
-        valignment = text_valign  # top, middle, bottom
-
         # Log the clip-specific values
         logger.info(f"Clip Name: {name}")
         logger.info(f"Clip Start Time: {start}")
         logger.info(f"Clip End Time: {end}")
         logger.info(f"Text to Overlay: {text}")
         logger.info(f"Output File: {output_file}")
-        logger.info(f"Font: {font}, Font Size: {font_size}")
-        logger.info(f"Text Alignment: Horizontal - {halignment}, Vertical - {valignment}")
-        logger.info(f"Width: {width}, Height: {height}")
         
-        # GStreamer command to process the clip
-        gst_command = [
-            "gst-launch-1.0",
-            "filesrc", f"location={input_video}",
-            "!", "decodebin",
-            "!", "videoconvert",
-            "!", "videoscale",
-            "!", f'capsfilter', f'caps="video/x-raw,width={width},height={height}"',
-            "!", "textoverlay",
-            f"text={text}",
-            f"font-desc={font} {font_size}",
-            f"halignment={halignment}",
-            f"valignment={valignment}",
-            "!", gstreamer_config["encoder"],
-            "!", gstreamer_config["container_format"],
-            "!", "filesink", f"location={output_file}"
-        ]
+        # Extract the clip
+        clip = video_clip.subclip(start, end)
+
+        # Create a TextClip for the overlay text
+        txt_clip = TextClip(text, fontsize=moviepy_config["font_size"], font=moviepy_config["font"], color=moviepy_config["text_color"])
         
-        # Log the GStreamer command being executed
-        logger.info(f"GStreamer command: {' '.join(gst_command)}")
+        # Set the position and duration of the text
+        txt_clip = txt_clip.set_position((moviepy_config["text_halign"], moviepy_config["text_valign"])).set_duration(clip.duration)
+        
+        # Overlay the text on the video clip
+        video_with_text = CompositeVideoClip([clip, txt_clip])
 
-        # Run the GStreamer command inside a try-except block
-        try:
-            result = subprocess.run(gst_command, capture_output=True, text=True, check=True)
-            
-            # Print stdout and stderr
-            logger.info("GStreamer command stdout:")
-            logger.info(result.stdout)
-            if result.stderr:
-                logger.error("GStreamer command stderr:")
-                logger.error(result.stderr)
-            
-            logger.info(f"Clip {name} processed successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error occurred while processing clip {name}.")
-            logger.error(f"Return code: {e.returncode}")
-            logger.error(f"stdout: {e.stdout}")
-            logger.error(f"stderr: {e.stderr}")
+        # Write the result to the output file
+        video_with_text.write_videofile(output_file, codec="libx264", audio_codec="aac")
+        
+        logger.info(f"Clip {name} processed successfully.")
 
 
-#main
+def get_vendor(video_url):
+    """Extracts and normalizes the vendor (host) from the video URL."""
+    parsed_url = urlparse(video_url)
+    domain = parsed_url.netloc.lower().lstrip("www.")  # Strip 'www.'
+
+    # Return mapped vendor name or default to domain
+    return KNOWN_VENDORS.get(domain, domain)
+
+
+# ==================================================
+# MAIN EXECUTION
+# ==================================================
+
+# Ensure the input file is provided as an argument
+if len(sys.argv) < 2:
+    print("Error: No input video file provided.")
+    sys.exit(1)
 
 # Initialize logger
 logger = initialize_logging()
 
-# Run the GStreamer processing routine
-process_clips_gstreamer(gstreamer_config, clips, logger)
+
+# Log the vendor
+video_url = sys.argv[1]
+
+import yaml
+
+# Load the YAML file
+with open("clips/1.yaml", "r") as file:
+    data = yaml.safe_load(file)
+
+# Extract moviepy_config, clips, and KNOWN_VENDORS from the parsed data
+moviepy_config = data['moviepy_config']
+clips = data['clips']
+KNOWN_VENDORS = {list(entry.keys())[0]: list(entry.values())[0] for entry in data['KNOWN_VENDORS']}
+
+
+
+
+# Now you can access each part of the configuration
+print("MoviePy Configuration:", moviepy_config)
+print("Clips:", clips)
+print("Known Vendors:", KNOWN_VENDORS)
+
+
+
+
+# Ensure clips directory exists
+ensure_clips_directory(moviepy_config["clips_directory"])

@@ -110,77 +110,55 @@ def mask_metadata(params):
     Returns:
         dict: A dictionary containing masked metadata fields.
     """
+   
+
     logger.info("Masking metadata")
     masked_metadata = {}
 
-    # Call the extract_metadata function to get video information
-    metadata = extract_metadata(params)
+    # Extract metadata
+    metadata = extract_metadata(params)  # ✅ Indented properly
     if metadata:
-        # Original fields to be filtered
-        filtered_metadata_keys = [
-            "title",
-            "upload_date",
-            "uploader",
-            "file_path",
-            "duration",
-            "width",
-            "height",
-        ]
+        normalized_metadata = {}
 
-        # Adding new fields based on your request
-        new_metadata_keys = [
-            "id",
-            "ext",
-            "resolution",
-            "fps",
-            "channels",
-            "filesize",
-            "tbr",
-            "protocol",
-            "vcodec",
-            "vbr",
-            "acodec",
-            "abr",
-            "asr",
-        ]
-
-        # Combine original fields with new fields
-        filtered_metadata_keys.extend(new_metadata_keys)
-
-        # Filter metadata to only include the specified keys
-        filtered_metadata = {
-            key: metadata.get(key) for key in filtered_metadata_keys if key in metadata
+        key_mapping = {
+            "video_title": ["title"],
+            "video_date": ["upload_date"],
+            "uploader": ["uploader", "uploader_id"],
+            "file_path": ["file_path"],
+            "duration": ["duration"],
+            "width": ["width"],
+            "height": ["height"],
+            "ext": ["ext"],
+            "resolution": ["resolution"],
+            "fps": ["fps"],
+            "channels": ["channels"],
+            "filesize": ["filesize"],
+            "tbr": ["tbr"],
+            "protocol": ["protocol"],
+            "vcodec": ["vcodec"],
+            "vbr": ["vbr"],
+            "acodec": ["acodec"],
+            "abr": ["abr"],
+            "asr": ["asr"],
         }
 
-        logger.info("Extracted metadata:")
-        for key, value in filtered_metadata.items():
+        # Normalize metadata values
+        for standard_key, possible_keys in key_mapping.items():
+            for key in possible_keys:
+                if key in metadata:
+                    normalized_metadata[standard_key] = metadata[key]
+                    break  # Stop at the first found key
+
+        # Process video title separately (replace spaces)
+        if "video_title" in normalized_metadata:
+            normalized_metadata["video_title"] = normalized_metadata["video_title"].replace(" ", "_")
+
+        logger.info("Extracted and normalized metadata:")
+        for key, value in normalized_metadata.items():
             logger.info(f"{key}: {value}")
 
-        # Masking filtered metadata fields and replacing spaces with underscores
-        if "title" in filtered_metadata:
-            masked_metadata["video_title"] = filtered_metadata["title"].replace(
-                " ", "_"
-            )
-        if "upload_date" in filtered_metadata:
-            masked_metadata["video_date"] = filtered_metadata["upload_date"]
-        if "uploader" in filtered_metadata:
-            masked_metadata["uploader"] = filtered_metadata["uploader"]
-        if "file_path" in filtered_metadata:
-            masked_metadata["file_path"] = filtered_metadata["file_path"]
-        if "duration" in filtered_metadata:
-            masked_metadata["duration"] = filtered_metadata["duration"]
-        if "width" in filtered_metadata:
-            masked_metadata["width"] = filtered_metadata["width"]
-        if "height" in filtered_metadata:
-            masked_metadata["height"] = filtered_metadata["height"]
+        return normalized_metadata  # ✅ Now properly inside the function
 
-        # Adding the new fields to the masked metadata
-        for key in new_metadata_keys:
-            if key in filtered_metadata:
-                masked_metadata[key] = filtered_metadata[key]
-
-    logger.info("Metadata masking complete")
-    return masked_metadata
 
 
 def get_codecs_by_extension(extension):
