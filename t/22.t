@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# don't use this test
+
 use strict;
 use warnings;
 use Test::More;
@@ -141,7 +143,7 @@ sub handle_watermark {
 sub handle_clips {
     my ($frobnitz, $file) = @_;
     
-    my $clip_file = $frobnitz->add_clipped_captions($file);
+    my $clip_file = $frobnitz->make_clips($file);
     
     if (!$clip_file || !-e $clip_file) {
         $logger->error("Failed to add clips to file: $file");
