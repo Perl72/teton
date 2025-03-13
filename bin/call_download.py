@@ -6,8 +6,8 @@ import traceback
 import platform
 from datetime import datetime
 
-def load_config(config_path):
-
+# Load Platform-Specific Configuration
+def load_config():
     """Load configuration based on the operating system."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(current_dir, "../conf/config.json")
@@ -24,6 +24,7 @@ def load_config(config_path):
 
     return config[os_name]
 
+# Initialize Logging
 def init_logging(logging_config):
     """Set up logging based on the configuration."""
     logger = logging.getLogger()
@@ -52,16 +53,12 @@ def init_logging(logging_config):
     logger.info("Logging initialized.")
     return logger
 
+# Check if URL exists in clips JSON files
 def find_url_in_clips(url, clips_dir="./clips"):
-    """
-    Search for a JSON file in the clips directory that contains the given URL.
-    :param url: The video URL to search for.
-    :param clips_dir: The directory containing clip JSON files.
-    :return: The full path to the JSON file if found, else None.
-    """
+    """Search for a JSON file in the clips directory that contains the given URL."""
     if not os.path.exists(clips_dir):
         logging.warning(f"Clips directory not found: {clips_dir}")
-        return None
+        return None, None
 
     for filename in os.listdir(clips_dir):
         if filename.endswith(".json"):
@@ -69,46 +66,38 @@ def find_url_in_clips(url, clips_dir="./clips"):
             try:
                 with open(json_path, "r", encoding="utf-8") as file:
                     data = json.load(file)
+
+                    # Assume JSON structure has a "url" field
                     if isinstance(data, dict) and "url" in data and data["url"] == url:
                         logging.info(f"URL found in {filename}")
-                        return json_path
+                        return filename, data
+
             except (json.JSONDecodeError, IOError) as e:
                 logging.error(f"Error reading {json_path}: {e}")
 
     logging.info("URL not found in any JSON file.")
-    return None
+    return None, None
 
-def execute_tasks(task_config):
-    """Execute tasks based on the provided task configuration."""
-    task_mapping = {
-        "perform_download": lambda: logging.info("Downloading video..."),
-        "apply_watermark": lambda: logging.info("Applying watermark..."),
-        "make_clips": lambda: logging.info("Making clips..."),
-        "extract_audio": lambda: logging.info("Extracting audio..."),
-        "generate_captions": lambda: logging.info("Generating captions..."),
-    }
-    
-    for task, setting in task_config.items():
-        if setting is True:
-            logging.info(f"Executing {task}...")
-            task_mapping[task]()
-        elif isinstance(setting, str):
-            logging.info(f"Executing {task} with output path: {setting}")
-            task_mapping[task]()
-        else:
-            logging.info(f"Skipping {task}.")
-
-
+# Main Function
 def main():
     try:
-        config_path = "./conf/template1.json"  # Lexical variable for config file
-        platform_config = load_config(config_path)
+        # Load configurations
+        platform_config = load_config()
         logger = init_logging(platform_config["logging"])
 
+        # Add the `lib/python_utils` directory to sys.path
         current_dir = os.path.dirname(os.path.abspath(__file__))
         lib_path = os.path.join(current_dir, "../lib/python_utils")
         sys.path.append(lib_path)
         logger.debug(f"Current sys.path: {sys.path}")
+
+        # Attempt to import downloader5 and utilities1
+        try:
+            import downloader5
+            import utilities1
+        except ImportError as e:
+            logger.error(f"Failed to import modules: {e}")
+            sys.exit(1)
 
         # Set up paths
         target_usb = platform_config["target_usb"]
@@ -127,6 +116,7 @@ def main():
             except PermissionError:
                 logger.error(f"Permission denied: Unable to create {download_path}")
                 sys.exit(1)
+
         elif not os.access(download_path, os.W_OK):
             logger.error(f"Error: No write permission to {download_path}.")
             sys.exit(1)
@@ -141,15 +131,53 @@ def main():
         url = sys.argv[1].strip()
 
         # Check if URL already exists in clips
-        json_path = find_url_in_clips(url)
-        if json_path:
-            logger.info(f"Found URL in the following file: {json_path}")
-            with open(json_path, "r") as file:
-                task_config = json.load(file).get("default_tasks", {})
-                execute_tasks(task_config)
-    
+        found_file, found_data = find_url_in_clips(url)
+
+        if found_file:
+            print(f"Found in: {found_file}")
+            print(json.dumps(found_data, indent=2))
+            return
+
+        # Prepare parameters for function calls
+        params = {
+            "download_path": download_path,
+            "cookie_path": platform_config.get("cookie_path"),
+            "url": url,
+            **platform_config.get("watermark_config", {}),
+        }
+
+        # Execute function calls in sequence
+        function_calls = [
+            downloader5.mask_metadata,
+            downloader5.create_original_filename,
+            downloader5.download_video,
+            utilities1.store_params_as_json,
+        ]
+
+        for func in function_calls:
+            logger.info(f"Entering function: {func.__name__}")
+            try:
+                result = func(params)
+                if result:
+                    params.update(result)
+            except Exception as e:
+                logger.error(f"Error executing {func.__name__}: {e}")
+                logger.debug(traceback.format_exc())
+
+        # Output the original filename
+        original_filename = params.get("original_filename", "")
+        if original_filename:
+            logger.info(f"Returning original filename: {original_filename}")
+            print(original_filename)  # Print filename to stdout
+            return original_filename
+        else:
+            logger.warning("No original filename to return.")
+            return None
+
     except Exception as e:
-        logger.error("Error during execution: %s", traceback.format_exc())
+        print(f"Unexpected error: {e}")
+        print(traceback.format_exc())
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
