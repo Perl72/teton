@@ -18,6 +18,26 @@ sub new {
     return bless {}, $class;
 }
 
+sub call_main {
+    my ($class, $hyperlink) = @_;
+    die "No hyperlink provided.\n" unless $hyperlink;
+
+    my $script_path = $class->_get_script_path("main.py");  # Locate main.py
+    my $python_path = $class->_get_python_path();  # Find Python interpreter
+
+    print "Executing: $python_path $script_path $hyperlink\n";
+
+    my $output;
+    eval {
+        $output = capturex($python_path, $script_path, $hyperlink);
+    };
+    if ($@) {
+        die "Error executing main.py with hyperlink $hyperlink: $@\n";
+    }
+
+    chomp($output);  # Clean up trailing newlines
+    return $output;
+}
 
 
 # Load the JSON configuration file
