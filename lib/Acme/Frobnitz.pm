@@ -88,15 +88,14 @@ sub _get_script_path {
     return $script_path;
 }
 
-
 sub download {
     my ($class, $hyperlink) = @_;
     die "No hyperlink provided.\n" unless $hyperlink;
 
     my $script_path = $class->_get_script_path("call_download.py");
     my $python_path = $class->_get_python_path();
-    print "Running command: $python_path $script_path $hyperlink\n";
-    $DB::single = 1; 
+    print "DEBUG: Running command: $python_path $script_path $hyperlink\n";
+
     my $output;
     eval {
         $output = capturex($python_path, $script_path, $hyperlink);
@@ -105,9 +104,38 @@ sub download {
         die "Error executing $script_path with hyperlink $hyperlink: $@\n";
     }
 
-    chomp($output); # Remove trailing newlines from Python output
-    return $output;
+    # Debugging Output: Print Full Response
+    print "DEBUG FULL OUTPUT FROM PYTHON SCRIPT:\n";
+    my @lines = split /\n/, $output;
+    foreach my $i (0..$#lines) {
+        print "[$i]: $lines[$i]\n";  # Print each line with an index
+    }
+    print "END DEBUG OUTPUT\n";
+
+    # Find the last valid filename
+    my $filename;
+    foreach my $line (reverse @lines) {  # Reverse order, so we find the last one
+        print "DEBUG SCANNING LINE: '$line'\n";  # Print each line we check
+        if ($line =~ m{(["']?)([\w./ -]+\.(mp4|mkv|webm|mov|avi|flv|m4v|wmv))\1$}i) {
+            $filename = $2;  # Capture only the valid filename
+            print "DEBUG MATCH FOUND: '$filename'\n";  # Confirm we captured it
+            last;
+        }
+    }
+
+    if (!$filename) {
+        die "ERROR: No valid video filename found in download output!\n";
+    }
+
+    # Print extracted filename for debugging
+    print "DEBUG EXTRACTED FILENAME: '$filename'\n";
+
+    return $filename;  # Return actual filename, NOT "DEBUG_COMPLETE"
 }
+
+
+
+
 
 
 # Add watermark by invoking the Python watermark script directly

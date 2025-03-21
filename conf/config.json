@@ -7,6 +7,7 @@
     "resize_dir": "/Users/mymac/Pictures/resize",
     "target_usb": "/Volumes/BallardT1",
     "cookie_path": "/Users/mymac/Desktop/cookies.txt",
+    "imagemagick_binary": "/opt/homebrew/bin/magick",
     "logging": {
       "level": "DEBUG",
       "log_to_file": true,
@@ -23,6 +24,7 @@
     "resize_dir": "/home/fritz/Pictures/resize",
     "target_usb": "/media/fritz/E4B0-3FC21",
     "cookie_path": "/home/fritz/Desktop/cookies.txt",
+    "imagemagick_binary": "",
     "logging": {
       "level": "DEBUG",
       "log_to_file": true,
@@ -32,4 +34,3 @@
     }
   }
 }
-
