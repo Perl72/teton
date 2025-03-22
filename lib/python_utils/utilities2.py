@@ -45,6 +45,7 @@ import time
 import speech_recognition as sr
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, ColorClip, concatenate_videoclips
 
+print(f"📦 {__name__} imported into {__file__}")
 
 
 # ==================================================
@@ -112,10 +113,6 @@ def load_app_config():
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON configuration at {config_path}: {e}")
 
-if len(sys.argv) < 3:
-    print("Usage: python script.py <input_video> <clips_json_file>")
-    sys.exit(1)
-
 # ==================================================
 # AUDIO EXTRACTION AND CAPTIONING
 # ==================================================
@@ -144,25 +141,57 @@ def process_clip(video_path, start_time, end_time):
 # ==================================================
 # NEW: Generate Transcripts from Clip Set
 # ==================================================
-def generate_clip_transcripts(input_video, clips, output_yaml_path):
+def generate_clip_transcripts(input_video, clips, output_yaml_path, logger=None):
     for clip_name, clip_list in clips.items():
         for clip in clip_list:
             start, end = clip["start"], clip["end"]
+
+            if logger:
+                logger.info(f"🔊 Processing {clip_name} ({start}s – {end}s)")
+
+            existing_text = clip.get("text", "").strip()
+
+            # Step 1: if text exists, ask user to keep or re-transcribe
+            if existing_text:
+                print(f"\n⚙️  Existing text for {clip_name}: \"{existing_text}\"")
+                use_existing = input("👉 Use this text? (y/n): ").strip().lower()
+                if use_existing == "y":
+                    if logger:
+                        logger.info(f"✅ Keeping existing text: \"{existing_text}\"")
+                    continue  # keep existing text, move to next clip
+
+            # Step 2: transcribe audio
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
                 audio_path = extract_audio_from_video(input_video, start, end, temp_audio_file.name)
                 transcription = transcribe_audio(audio_path)
                 os.remove(audio_path)
-            clip["text"] = transcription
+
+            # Step 3: confirm or edit transcription
+            print(f"\n📝 Transcribed: \"{transcription}\"")
+            user_input = input("✏️  Press Enter to accept, or type new caption: ").strip()
+
+            final_text = user_input if user_input else transcription
+            clip["text"] = final_text
+
+            if logger:
+                logger.info(f"✍️ Final text for {clip_name}: \"{final_text}\"")
+
     with open(output_yaml_path, "w") as f:
         yaml.dump(clips, f)
+
+    if logger:
+        logger.info(f"📝 Updated YAML saved to {output_yaml_path}")
+
     return output_yaml_path
+
+
 
 # ==================================================
 # PROCESS CLIPS
 # ==================================================
 def process_clips_moviepy(config, clips, logger, input_video, output_dir, captions_config=None):
     video_clip = VideoFileClip(input_video)
-    clips_directory = os.path.join(output_dir, "clips")
+    clips_directory = os.path.join(output_dir)
     os.makedirs(clips_directory, exist_ok=True)
 
     # Prefer captions config if provided
@@ -194,6 +223,8 @@ def process_clips_moviepy(config, clips, logger, input_video, output_dir, captio
                 video_with_text = clip_segment
 
             video_with_text.write_videofile(output_file, codec="libx264", audio_codec="aac")
+            logger.info(f"✅ Wrote video to: {output_file}")
+            logger.info(f"📂 File exists? {os.path.exists(output_file)}")
             logger.info(f"Clip {clip_name} processed successfully.")
 
 
@@ -215,3 +246,53 @@ def stitch_clips(clip_files, output_file):
     final_video = concatenate_videoclips(final_clips, method="compose")
     final_video.write_videofile(output_file, codec="libx264", fps=24, audio_codec="aac")
     print(f"Final stitched video saved as {output_file}")
+
+def process_clips_with_captions(app_config, clips, logger, input_video, output_dir):
+    video_clip = VideoFileClip(input_video)
+    clips_directory = output_dir  # ✅ No extra "clips" subdir
+    os.makedirs(clips_directory, exist_ok=True)
+    
+    for clip_name, clip_list in clips.items():
+        for clip in clip_list:
+            start, end = clip["start"], clip["end"]
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+                audio_path = extract_audio_from_video(input_video, start, end, temp_audio_file.name)
+                transcription = transcribe_audio(audio_path)
+                os.remove(audio_path)
+            
+            if transcription:
+                logger.info(f"Clip {clip_name}: Transcription -> {transcription}")
+                clip["text"] = transcription
+            
+            output_file = os.path.join(clips_directory, f"{clip_name}.mp4")
+            
+            logger.info(f"Processing Clip: {clip_name} ({start}-{end} sec)")
+            
+            logger.info(f"Applying captions using external module...")
+            captions_config = app_config.get("captions", {})
+            captions_config["input_video_path"] = output_file
+            captions_config["download_path"] = clips_directory
+            captions_config["paragraph"] = transcription
+            
+            from basic_captions3 import add_captions
+            result = add_captions(captions_config, logger)
+            if result:
+                logger.info(f"Captioning completed: {result['to_process']}")
+            else:
+                logger.error("Captioning failed.")
+
+def create_subdir(base_dir="clips", subdir_name="orange"):
+    """
+    Creates a subdirectory with a custom name inside a timestamped folder
+    based on the input video name. Returns the full path to the subdir.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    input_video_name = os.path.splitext(os.path.basename(sys.argv[1]))[0]
+    root_output = os.path.join(base_dir, f"{input_video_name}_{timestamp}")
+    subdir_timestamp = datetime.datetime.now().strftime("%H%M%S")  # add short time to subdir
+    full_subdir_name = f"{subdir_name}_{subdir_timestamp}"  # e.g. orange_165314
+    subdir_path = os.path.join(root_output, full_subdir_name)
+    os.makedirs(subdir_path, exist_ok=True)
+    return subdir_path
+
