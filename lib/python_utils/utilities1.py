@@ -127,6 +127,3 @@ def on_complete(stream, file_path):
     """
     print(f"Download complete: {file_path}")
 
-
-if __name__ == "__main__":
-    main()

@@ -1,6 +1,9 @@
-import os
 import re
 import json
+# Top of basic_captions3.py
+import os
+os.environ["IMAGEMAGICK_BINARY"] = os.getenv("IMAGEMAGICK_BINARY", "/opt/homebrew/bin/magick")
+
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 
 
@@ -45,7 +48,7 @@ def add_captions(params, logger=None):
             while next_index < len(words) and len(line) + len(words[next_index]) + 1 <= max_char_width:
                 line += ' ' + words[next_index]
                 next_index += 1
-            lines.append(line)
+            lines.append(line.strip())
             index = next_index
 
         # Determine video dimensions and orientation
@@ -63,6 +66,15 @@ def add_captions(params, logger=None):
         # Create caption clips
         caption_clips = []
         for line in lines:
+            line = line.strip()
+            if not line:
+                if logger:
+                    logger.warning("Skipping empty caption line.")
+                continue
+
+            if logger:
+                logger.debug(f"Adding caption line: '{line}'")
+
             start_time = overall_start
             end_time = start_time + params.get("cap_length", 5)
 
@@ -122,4 +134,3 @@ def add_captions(params, logger=None):
         if logger:
             logger.error(f"Error in adding captions: {e}")
         raise
-

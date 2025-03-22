@@ -172,9 +172,10 @@ def get_codecs_by_extension(extension):
     return codecs.get(extension, {"video_codec": "libx264", "audio_codec": "aac"})
 
 
+
 def create_original_filename(params):
     """
-    Generates an original filename for the video based on parameters and returns it as a dictionary.
+    Generates an original filename for the video based on parameters and ensures a fallback name if uploader is missing.
 
     Args:
         params (dict): The input dictionary containing relevant fields.
@@ -184,15 +185,25 @@ def create_original_filename(params):
     """
     # Extract the required fields from params
     download_path = params.get("download_path", "/Volumes/BallardTim/")
-    video_uploader = params.get("uploader", "unknown_uploader")
-    video_date = params.get("video_date", "unknown_date")
+    video_uploader = params.get("uploader", "").strip()  # Ensure it's a string and strip whitespace
+    video_date = params.get("video_date", "").strip()
 
-    # Generate the filename using the uploader, date, and extension
-    # Replace spaces and slashes when constructing the filename
+    # Ensure valid defaults if uploader or date is missing
+    if not video_uploader:
+        logger.warning("Uploader missing from metadata, using 'unknown_uploader'.")
+        video_uploader = "unknown_uploader"
+
+    if not video_date:
+        logger.warning("Video date missing from metadata, using 'unknown_date'.")
+        video_date = "unknown_date"
+
+    # Format the uploader name to be filename-safe
     video_uploader_filename = video_uploader.replace(" ", "_").replace("/", "_")
     ext = params.get("ext", "mp4")  # Default to mp4 if not specified
+
+    # Construct the output filename
     output_filename = f"{video_uploader_filename}_{video_date}.{ext}"
-    
+
     # Generate a unique filename to avoid overwrites
     unique_filename = unique_output_path(download_path, output_filename)
 
