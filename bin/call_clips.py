@@ -16,7 +16,6 @@ sys.path.append(lib_path)
 from utilities3 import (
     should_perform_task,
     get_existing_task_output,
-    process_clips_with_captions,
     load_config,
     set_imagemagick_env
 )
@@ -25,7 +24,10 @@ from utilities2 import (
     initialize_logging,
     load_app_config,
     load_clips_from_file,
-    create_output_directory
+    create_output_directory,
+    process_clips_moviepy,
+    process_clips_with_captions,
+    create_subdir
 )
 
 # ======================================
@@ -76,6 +78,16 @@ logger.info(f"Processing video: {input_video}")
 # Load & Process Clips
 # ======================================
 clips = load_clips_from_file(clips_file)
-output_dir = create_output_directory()
+output_dir = create_subdir(base_dir="clips", subdir_name="orange")
 
+
+captions_config_path = "clips/2.tb.tty.yaml"
+with open(captions_config_path, "r") as f:
+    captions_config = yaml.safe_load(f)
+
+# Call the part that creates clips first
+process_clips_moviepy(app_config, clips, logger, input_video, output_dir, captions_config)
+
+# THEN do captioning (if needed, or if it's a separate pass)
 process_clips_with_captions(app_config, clips, logger, input_video, output_dir)
+
