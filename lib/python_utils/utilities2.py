@@ -44,6 +44,9 @@ import tempfile
 import time
 import speech_recognition as sr
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, ColorClip, concatenate_videoclips
+import threading
+
+logger = logging.getLogger(__name__)
 
 print(f"📦 {__name__} imported into {__file__}")
 
@@ -71,7 +74,7 @@ moviepy_config = {
 def initialize_logging():
     log_dir = "./logs"
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "moviepy_clips.log")
+    log_file = os.path.join(log_dir, "tja.log")
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -130,13 +133,50 @@ def transcribe_audio(audio_path):
     except (sr.UnknownValueError, sr.RequestError):
         return ""
 
-def process_clip(video_path, start_time, end_time):
+def process_clip1(video_path, start_time, end_time):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
         audio_path = extract_audio_from_video(video_path, start_time, end_time, temp_audio_file.name)
         transcription = transcribe_audio(audio_path)
         os.remove(audio_path)
         user_input = input(f"Transcribed text: '{transcription}'\nPress Enter to keep or type a new caption: ")
         return user_input.strip() if user_input else transcription
+
+
+
+def timed_input(prompt, timeout=10):
+    import threading
+
+    result = {"input": None}
+
+    def inner():
+        try:
+            result["input"] = input(prompt)
+        except Exception:
+            result["input"] = ''
+
+    thread = threading.Thread(target=inner)
+    # DO NOT set daemon=True — that causes this crash
+    thread.start()
+    thread.join(timeout)
+
+    if thread.is_alive():
+        print(f"\n[Timed out after {timeout} seconds. Using default transcription.]\n")
+        return ''
+    return result["input"]
+
+
+def process_clip(video_path, start_time, end_time):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+        audio_path = extract_audio_from_video(video_path, start_time, end_time, temp_audio_file.name)
+        transcription = transcribe_audio(audio_path)
+        os.remove(audio_path)
+
+        user_input = timed_input(
+            f"Transcribed text: '{transcription}'\nPress Enter to keep or type a new caption (10s timeout): ",
+            timeout=10
+        )
+        return user_input.strip() if user_input else transcription
+
 
 # ==================================================
 # NEW: Generate Transcripts from Clip Set
@@ -295,4 +335,22 @@ def create_subdir(base_dir="clips", subdir_name="orange"):
     subdir_path = os.path.join(root_output, full_subdir_name)
     os.makedirs(subdir_path, exist_ok=True)
     return subdir_path
+
+# Load Platform-Specific Configuration
+def load_config():
+    """Load configuration based on the operating system."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(current_dir, "../conf/config.json")
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
+
+    with open(config_path, "r") as file:
+        config = json.load(file)
+
+    os_name = platform.system()
+    if os_name not in config:
+        raise ValueError(f"Unsupported platform: {os_name}")
+
+    return config[os_name]
 
