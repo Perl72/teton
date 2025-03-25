@@ -181,24 +181,24 @@ sub add_basic_captions {
 }
 
 
-# Make clips by invoking the Python make_clips script directly
 sub make_clips {
-    my ($class, $input_video) = @_;
+    my ($class, $input_video, $yaml_file) = @_;
     die "Input video file not provided.\n" unless $input_video;
+    die "YAML file not provided.\n" unless $yaml_file;
 
     my $script_path = $class->_get_script_path("call_clips.py");  
     my $python_path = $class->_get_python_path();
-    print "Running command: $python_path $script_path $input_video\n";
-    $DB::single = 1; 
+    print "Running command: $python_path $script_path $input_video $yaml_file\n";
+
     my $output;
     eval {
-        $output = capturex($python_path, $script_path, $input_video);
+        $output = capturex($python_path, $script_path, $input_video, $yaml_file);
     };
     if ($@) {
         die "Error making clips with $script_path: $@\n";
     }
 
-    chomp($output); # Remove trailing newlines from Python output
+    chomp($output);
     return $output;
 }
 

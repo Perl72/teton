@@ -81,7 +81,9 @@ clips = load_clips_from_file(clips_file)
 output_dir = create_subdir(base_dir="clips", subdir_name="orange")
 
 
-captions_config_path = "clips/2.tb.tty.yaml"
+#captions_config_path = "clips/2.tb.tty.yaml"
+captions_config_path = clips_file  # ← use the file passed from Perl
+
 with open(captions_config_path, "r") as f:
     captions_config = yaml.safe_load(f)
 

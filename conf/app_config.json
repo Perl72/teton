@@ -1,7 +1,7 @@
 {
     "default_tasks": {
-        "perform_download": false,
-        "apply_watermark": "/home/fritz/Desktop/bashful-backup/watermarked/Tim_Ballard_20250208_watermarked.mp4",
+        "perform_download": true,
+        "apply_watermark": true,
         "make_clips": true,
         "extract_audio": true,
         "generate_captions": true,
@@ -11,7 +11,9 @@
         "format": "bestvideo[height<=?1080]+bestaudio/best",
         "bitrate": "5000k",
         "noplaylist": true,
-        "cookie_path": "./conf/cookies.txt"
+        "cookie_path": "./conf/cookies.txt",
+        "metadata_backup_path": "./metadata"
+
     },
     "watermark_config": {
         "font": "Arial Bold",
@@ -21,7 +23,7 @@
         "timestamp_color": "red",
         "username_position": ["left", "top"],
         "date_position": ["left", "bottom"],
-        "metadata_backup_path": "./clips",
+        "metadata_backup_path": "./metadata",
         "timestamp_position": ["right", "bottom"]
     },
     "ken_burns": {

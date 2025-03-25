@@ -22,6 +22,18 @@ from moviepy.editor import VideoFileClip
 import json
 import platform
 import speech_recognition as sr
+import logging
+from datetime import datetime
+from urllib.parse import urlparse
+
+
+import shutil
+import traceback
+
+
+
+
+logger = logging.getLogger(__name__)
 
 # === Audio Extraction + Transcription Helpers ===
 
@@ -84,13 +96,14 @@ def transcribe_video_by_minute(video_path):
 
 
 # === Task Helpers ===
-def should_perform_task(task: str, app_config: dict) -> bool:
-    val = app_config.get("default_tasks", {}).get(task)
+def should_perform_task(task: str, task_config: dict) -> bool:
+    val = task_config.get(task)
     return val is True
 
-def get_existing_task_output(task: str, app_config: dict) -> str | None:
-    val = app_config.get("default_tasks", {}).get(task)
+def get_existing_task_output(task: str, task_config: dict) -> str | None:
+    val = task_config.get(task)
     return val if isinstance(val, str) else None
+
 
 
 def load_config():
@@ -110,3 +123,135 @@ def set_imagemagick_env(config_block):
     binary = config_block.get("imagemagick_binary")
     if binary:
         os.environ["IMAGEMAGICK_BINARY"] = binary
+
+
+        # --- Load Platform-Specific Configuration ---
+def load_platform_config():
+
+    # Go up two levels from lib/python_utils/utilities2.py
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    config_path = os.path.join(base_dir, "conf", "config.json")
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
+
+    with open(config_path, "r") as file:
+        config = json.load(file)
+
+    return config
+
+
+
+def prepare_usb_download_path(config, logger=None):
+    """
+    Ensure USB target path exists and is writable.
+    Returns full dated path like /Volumes/MyDrive/2025-03-23
+    """
+    target_usb = config["target_usb"]
+    download_date = datetime.now().strftime("%Y-%m-%d")
+    download_path = os.path.join(target_usb, download_date)
+
+    if not os.path.exists(target_usb):
+        msg = f"USB drive not mounted: {target_usb}"
+        if logger: logger.error(msg)
+        raise FileNotFoundError(msg)
+
+    if not os.path.exists(download_path):
+        if logger: logger.warning(f"Creating download path: {download_path}")
+        try:
+            os.makedirs(download_path, exist_ok=True)
+        except PermissionError:
+            msg = f"Permission denied: {download_path}"
+            if logger: logger.error(msg)
+            raise PermissionError(msg)
+    elif not os.access(download_path, os.W_OK):
+        msg = f"No write permission to: {download_path}"
+        if logger: logger.error(msg)
+        raise PermissionError(msg)
+
+    if logger: logger.info(f"Download directory confirmed: {download_path}")
+    return download_path
+
+
+
+
+def find_url_json(url, metadata_dir="./metadata"):
+    """
+    Search for a JSON file in the metadata directory that contains the given URL.
+    
+    :param url: The video URL to search for.
+    :param metadata_dir: The directory containing metadata JSON files.
+    :return: A tuple (file_path, data) if found, else (None, None).
+    """
+    if not os.path.exists(metadata_dir):
+        logging.warning(f"Metadata directory not found: {metadata_dir}")
+        return None, None
+
+    for filename in os.listdir(metadata_dir):
+        if filename.endswith(".json"):
+            json_path = os.path.join(metadata_dir, filename)
+            try:
+                with open(json_path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                    if isinstance(data, dict) and "url" in data and data["url"] == url:
+                        logging.info(f"URL found in: {json_path}")
+                        return json_path, data
+            except (json.JSONDecodeError, IOError) as e:
+                logging.error(f"Error reading {json_path}: {e}")
+
+    logging.info("URL not found in any metadata file.")
+    return None, None
+
+
+
+
+def copy_and_extend_metadata(params: dict) -> dict:
+    """
+    Copies the metadata JSON file from the USB location to metadata_backup_path,
+    and updates 'perform_download' in default_tasks with the full original_filename path.
+
+    Returns:
+        dict: {'full_metadata_json': path_to_written_file}
+    """
+    try:
+        original_json_path = params.get("config_json")
+        original_filename = params.get("original_filename", "")
+        default_tasks = params.get("default_tasks", {})
+        app_config = params.get("app_config", {})
+        task = "perform_download"
+
+        if not original_json_path or not os.path.exists(original_json_path):
+            logging.warning("Original config JSON not found. Skipping backup.")
+            return {"full_metadata_json": None}
+
+        # Determine target metadata path
+        metadata_dir = app_config.get("video_download", {}).get("metadata_backup_path", "./metadata")
+        os.makedirs(metadata_dir, exist_ok=True)
+
+        base_name = os.path.basename(original_json_path)
+        target_path = os.path.join(metadata_dir, base_name)
+
+        # Copy the original JSON
+        shutil.copy2(original_json_path, target_path)
+
+        # Load it and patch default_tasks
+        with open(target_path, "r") as f:
+            data = json.load(f)
+
+        if "default_tasks" in data and task in data["default_tasks"] and original_filename:
+            data["default_tasks"][task] = original_filename
+            logging.info(f"Updated '{task}' with completed path: {original_filename}")
+        else:
+            logging.warning("default_tasks not found in metadata JSON or task missing.")
+
+        # Save it back
+        with open(target_path, "w") as f:
+            json.dump(data, f, indent=4)
+
+        logging.info(f"Extended metadata saved to: {target_path}")
+        return {"full_metadata_json": target_path}
+
+    except Exception as e:
+        logging.error(f"Error in copy_and_extend_metadata: {e}")
+        logging.debug(traceback.format_exc())
+        return {"full_metadata_json": None}

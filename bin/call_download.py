@@ -1,184 +1,136 @@
 import sys
 import os
 import json
-import logging
 import traceback
-import platform
 from datetime import datetime
+import logging 
 
-# Load Platform-Specific Configuration
-def load_config():
-    """Load configuration based on the operating system."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(current_dir, "../conf/config.json")
+# Add lib path to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+lib_path = os.path.join(current_dir, "../lib/python_utils")
+sys.path.append(lib_path)
 
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found at {config_path}")
 
-    with open(config_path, "r") as file:
-        config = json.load(file)
+# Import utilities
+from utilities1 import store_params_as_json
+from utilities2 import initialize_logging, load_config, load_app_config
+from utilities3 import (
+    should_perform_task,
+    get_existing_task_output,
+    prepare_usb_download_path,
+    find_url_json,
+    load_config,
+    copy_and_extend_metadata
+)
+import chain_adapters
 
-    os_name = platform.system()
-    if os_name not in config:
-        raise ValueError(f"Unsupported platform: {os_name}")
-
-    return config[os_name]
-
-# Initialize Logging
-def init_logging(logging_config):
-    """Set up logging based on the configuration."""
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    if logging_config.get("log_to_file"):
-        log_file = os.path.expanduser(logging_config["log_filename"])
-        log_dir = os.path.dirname(log_file)
-
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging_config.get("level", "DEBUG"))
-        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-
-    if logging_config.get("log_to_console"):
-        console_handler = logging.StreamHandler(stream=sys.stderr)
-        console_handler.setLevel(logging_config.get("console_level", "INFO"))
-        console_formatter = logging.Formatter("%(asctime)s - %(message)s")
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-
-    logger.info("Logging initialized.")
-    return logger
-
-# Check if URL exists in clips JSON files
-def find_url_in_clips(url, clips_dir="./clips"):
-    """Search for a JSON file in the clips directory that contains the given URL."""
-    if not os.path.exists(clips_dir):
-        logging.warning(f"Clips directory not found: {clips_dir}")
-        return None, None
-
-    for filename in os.listdir(clips_dir):
-        if filename.endswith(".json"):
-            json_path = os.path.join(clips_dir, filename)
-            try:
-                with open(json_path, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-
-                    # Assume JSON structure has a "url" field
-                    if isinstance(data, dict) and "url" in data and data["url"] == url:
-                        logging.info(f"URL found in {filename}")
-                        return filename, data
-
-            except (json.JSONDecodeError, IOError) as e:
-                logging.error(f"Error reading {json_path}: {e}")
-
-    logging.info("URL not found in any JSON file.")
-    return None, None
-
-# Main Function
 def main():
     try:
-        # Load configurations
-        platform_config = load_config()
-        logger = init_logging(platform_config["logging"])
+        config = load_config()  # platform config
+        logger = initialize_logging()  # must come BEFORE any logger.debug
 
-        # Add the `lib/python_utils` directory to sys.path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        lib_path = os.path.join(current_dir, "../lib/python_utils")
-        sys.path.append(lib_path)
-        logger.debug(f"Current sys.path: {sys.path}")
+        # Load app_config and initialize logger
+        app_config = load_app_config()
+        logger.debug("App config loaded:")
+        logger.debug(json.dumps(app_config, indent=2))
+        print("App config:")
+        print(json.dumps(app_config, indent=2))
 
-        # Attempt to import downloader5 and utilities1
+        video_download_config = app_config.get("video_download", {})
+        logger.debug("Video download config:")
+        logger.debug(json.dumps(video_download_config, indent=2))
+        print("Video download config:")
+        print(json.dumps(video_download_config, indent=2))
+
+        logger.info("=== Task-aware Download Pipeline Started ===")
+
+        # Check if the task is enabled
+
+        task = "perform_download"
+        default_tasks = app_config.get("default_tasks", {})
+        logger.debug("Default tasks config:")
+        logger.debug(json.dumps(default_tasks, indent=2))
+        print("Default tasks config:")
+        print(json.dumps(default_tasks, indent=2))
+
+        if not should_perform_task(task, default_tasks):
+            existing = get_existing_task_output(task, default_tasks)
+            if existing:
+                logger.info(f"Task '{task}' already completed. Output at: {existing}")
+                print(existing)
+                return
+            else:
+                logger.info(f"Task '{task}' is disabled in default_tasks. Skipping.")
+                return
+
+
+
+
+        # Import downloader module
         try:
             import downloader5
-            import utilities1
         except ImportError as e:
-            logger.error(f"Failed to import modules: {e}")
+            logger.error(f"Failed to import downloader5: {e}")
             sys.exit(1)
 
-        # Set up paths
-        target_usb = platform_config["target_usb"]
-        download_date = datetime.now().strftime("%Y-%m-%d")
-        download_path = os.path.join(target_usb, download_date)
-
-        # Check if the USB is mounted and writable
-        if not os.path.exists(target_usb):
-            logger.error(f"Error: USB drive {target_usb} is not mounted.")
-            sys.exit(1)
-
-        if not os.path.exists(download_path):
-            logger.warning(f"Download path {download_path} does not exist. Creating it now.")
-            try:
-                os.makedirs(download_path, exist_ok=True)
-            except PermissionError:
-                logger.error(f"Permission denied: Unable to create {download_path}")
-                sys.exit(1)
-
-        elif not os.access(download_path, os.W_OK):
-            logger.error(f"Error: No write permission to {download_path}.")
-            sys.exit(1)
-
-        logger.info(f"Download directory confirmed: {download_path}")
-
-        # Validate URL input
+        # Validate input
         if len(sys.argv) < 2:
-            logger.error("The URL is missing. Please provide a valid URL as a command-line argument.")
+            logger.error("Missing URL. Please provide a URL.")
             sys.exit(1)
-
         url = sys.argv[1].strip()
 
-        # Check if URL already exists in clips
-        found_file, found_data = find_url_in_clips(url)
-
+        # Check if URL already exists in metadata
+        found_file, found_data = find_url_json(url, metadata_dir="./metadata")
         if found_file:
             print(f"Found in: {found_file}")
             print(json.dumps(found_data, indent=2))
             return
 
-        # Prepare parameters for function calls
+        # Determine output path on USB
+        download_path = prepare_usb_download_path(config, logger)
+
+        # Build shared param dictionary
         params = {
             "download_path": download_path,
-            "cookie_path": platform_config.get("cookie_path"),
             "url": url,
-            **platform_config.get("watermark_config", {}),
+            "config": config,
+            "default_tasks": default_tasks,  # ✅ correct way
+            **config.get("video_download", {}),
         }
 
-        # Execute function calls in sequence
+        # Define pipeline
         function_calls = [
             downloader5.mask_metadata,
             downloader5.create_original_filename,
             downloader5.download_video,
-            utilities1.store_params_as_json,
+            store_params_as_json,
+            copy_and_extend_metadata
+
         ]
 
+        # Execute pipeline
         for func in function_calls:
-            logger.info(f"Entering function: {func.__name__}")
+            logger.info(f"Calling: {func.__name__}")
             try:
                 result = func(params)
                 if result:
                     params.update(result)
             except Exception as e:
-                logger.error(f"Error executing {func.__name__}: {e}")
+                logger.error(f"Error in {func.__name__}: {e}")
                 logger.debug(traceback.format_exc())
 
-        # Output the original filename
-        original_filename = params.get("original_filename", "")
+        # Final output
+        original_filename = params.get("original_filename")
         if original_filename:
             logger.info(f"Returning original filename: {original_filename}")
-            print(original_filename)  # Print filename to stdout
-            return original_filename
+            print(original_filename)
         else:
-            logger.warning("No original filename to return.")
-            return None
+            logger.warning("Download finished, but no filename was produced.")
 
     except Exception as e:
         print(f"Unexpected error: {e}")
-        print(traceback.format_exc())
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
