@@ -1,97 +1,31 @@
 import os
 import sys
 import json
-import logging
 import traceback
-from datetime import datetime    
+from datetime import datetime
 
-## This routine needs to be locked in
-# Load Application Configuration
-def load_app_config():
-    """Load the application configuration from a JSON file."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "../")
-    
-    if not os.path.exists(base_dir):
-        # Squeaky error message if the base directory doesn't exist
-        raise FileNotFoundError(f"Base directory not found at {base_dir}")
-    
-    config_path = os.path.join(base_dir, "conf/app_config.json")
+# === Load from local utils ===
+current_dir = os.path.dirname(os.path.abspath(__file__))
+lib_path = os.path.join(current_dir, "../lib/python_utils")
+sys.path.append(lib_path)
 
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found at {config_path}")
-    
-    try:
-        with open(config_path, "r") as file:
-            app_config = json.load(file)
-        return app_config
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse JSON configuration at {config_path}: {e}")
+from utilities2 import initialize_logging,load_app_config
+from utilities4 import update_task_output_path, add_default_tasks_to_metadata
 
+# === Attempt to import watermarking function ===
+try:
+    from watermarker2 import add_watermark
+except ImportError as e:
+    print(f"Failed to import add_watermark: {e}")
+    sys.exit(1)
 
-# Initialize Logging
-def init_logging(logging_config):
-    """Set up logging based on the configuration."""
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    if logging_config.get("log_to_file"):
-        log_file = os.path.expanduser(logging_config["log_filename"])
-        log_dir = os.path.dirname(log_file)
-
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging_config.get("level", "DEBUG"))
-        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-
-    if logging_config.get("log_to_console"):
-        console_handler = logging.StreamHandler(stream=sys.stderr)
-        console_handler.setLevel(logging_config.get("console_level", "INFO"))
-        console_formatter = logging.Formatter("%(asctime)s - %(message)s")
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-
-    logger.info("Logging initialized.")
-    return logger
-
-
-def get_backup_filename(input_video_path, backup_dir):
-    """Generate a well-formed backup filename for metadata."""
-    base_name = os.path.splitext(os.path.basename(input_video_path))[0]
-    return os.path.join(backup_dir, f"{base_name}_metadata.json")
-
-
-def backup_metadata(metadata, backup_path):
-    """Save metadata to the specified backup location."""
-    os.makedirs(os.path.dirname(backup_path), exist_ok=True)
-    with open(backup_path, "w") as file:
-        json.dump(metadata, file, indent=4)
-    logger.info(f"Metadata backup saved to: {backup_path}")
-
-
+# === MAIN EXECUTION ===
 if __name__ == "__main__":
     try:
         # Load app configuration
         app_config = load_app_config()
         watermark_config = app_config.get("watermark_config", {})
-        logger = init_logging(app_config.get("logging", {}))
-
-        # Add the `lib/python_utils` directory to sys.path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        lib_path = os.path.join(current_dir, "../lib/python_utils")
-        sys.path.append(lib_path)
-        logger.debug(f"Current sys.path: {sys.path}")
-
-        # Attempt to import the watermarking function
-        try:
-            from watermarker2 import add_watermark
-        except ImportError as e:
-            logger.error(f"Failed to import add_watermark: {e}")
-            sys.exit(1)
+        logger = initialize_logging()
 
         # Validate input arguments
         if len(sys.argv) < 2:
@@ -106,8 +40,9 @@ if __name__ == "__main__":
         logger.info(f"Processing video file: {input_video_path}")
 
         # Locate and read metadata JSON
-        base_name = os.path.splitext(input_video_path)[0]
-        json_path = f"{base_name}.json"
+        # Fallback: guess based on input path
+        json_path = os.path.join("metadata", os.path.basename(input_video_path).replace(".mp4", ".json"))
+
         logger.info(f"Looking for metadata file: {json_path}")
 
         if not os.path.isfile(json_path):
@@ -133,26 +68,28 @@ if __name__ == "__main__":
             **watermark_config,
         }
 
-        # Debugging appconfig
         logger.debug(f"Watermark configuration: {watermark_config}")
 
-        # Start watermarking
+        # Perform watermarking
         logger.info("Starting watermarking process...")
         result = add_watermark(params)
 
         if result and "to_process" in result:
-            logger.info(f"Watermarked video created successfully: {result['to_process']}")
-            print(result["to_process"])
+            output_path = result["to_process"]
+            logger.info(f"Watermarked video created successfully: {output_path}")
+            print(output_path)
 
-            # Backup metadata
-            backup_path = get_backup_filename(input_video_path, watermark_config.get("metadata_backup_path", "./clips"))
-            backup_metadata(data, backup_path)
+            # Make sure default_tasks is initialized
+            add_default_tasks_to_metadata(json_path)
+
+            # Update metadata with output path
+            update_result = update_task_output_path(json_path, "apply_watermark", output_path)
+            logger.debug(f"Metadata update result: {update_result}")
         else:
             logger.error("Watermarking process failed or did not return valid output.")
             sys.exit(1)
 
     except Exception as e:
-        # Fallback to `print` if `logger` is not defined
         if 'logger' in globals():
             logger.error(f"An unexpected error occurred: {e}")
             logger.debug(traceback.format_exc())
@@ -160,4 +97,3 @@ if __name__ == "__main__":
             print(f"Unexpected error: {e}")
             print(traceback.format_exc())
         sys.exit(1)
-
