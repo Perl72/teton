@@ -13,13 +13,9 @@ lib_path = os.path.join(current_dir, "../lib/python_utils")
 sys.path.append(lib_path)
 
 # === Imports from shared utils ===
-from utilities2 import initialize_logging, load_config, create_output_directory, create_subdir
-from utilities3 import extract_audio_from_video, transcribe_video_by_minute
-from utilities4 import should_perform_task, update_task_output_path, load_default_tasks, generate_dynamic_clips_from_metadata
-
-# === Task Info ===
-task = "generate_captions"
-
+from utilities2 import initialize_logging
+from utilities3 import extract_audio_from_video, transcribe_audio
+from utilities4 import generate_dynamic_clips_from_metadata
 
 # ==================================================
 # CLIPS CONFIGURATION 
@@ -40,27 +36,64 @@ moviepy_config = {
 # MAIN
 # ==================================================
 if len(sys.argv) < 2:
-    print("Error: No input video provided.")
+    print("Usage: python call_captions.py <video_path>")
     sys.exit(1)
 
 logger = initialize_logging()
 video_path = sys.argv[1]
-json_path = os.path.join("metadata", os.path.basename(video_path).replace(".mp4", ".json"))
+video_name = os.path.basename(video_path).replace(".mp4", "")
+json_path = os.path.join("metadata", f"{video_name}.json")
 
-
-if len(sys.argv) < 2:
-    print("Error: No input video provided.")
+if not os.path.exists(json_path):
+    logger.error(f"Metadata not found: {json_path}")
     sys.exit(1)
 
-logger = initialize()
-video_path = sys.argv[1]
-json_path = os.path.join("metadata", os.path.basename(video_path).replace(".mp4", ".json"))
+with open(json_path, "r") as f:
+    metadata = json.load(f)
 
-# Load or generate clips
-try:
-    clip_result = generate_dynamic_clips_from_metadata(json_path)
-    clips = clip_result["clips"]
-    logger.info(f"🎞 Loaded {len(clips)} clips from metadata.")
-except Exception as e:
-    logger.error(f"Failed to prepare clips: {e}")
+clips = metadata.get("clips", [])
+if not clips:
+    logger.warning("No clips defined in metadata.")
     sys.exit(1)
+
+logger.info(f"🧩 Found {len(clips)} clips in metadata. Starting caption overlay...")
+
+# Use the proper output directory derived from video metadata
+output_dir = metadata.get("output_dir") or moviepy_config["clips_directory"]
+
+for clip in clips:
+    clip_name = clip["name"]
+    clip_file = os.path.join(output_dir, f"{clip_name}.mp4")
+    output_captioned = os.path.join(output_dir, f"{clip_name}_captioned.mp4")
+
+    if not os.path.exists(clip_file):
+        logger.warning(f"Clip file missing: {clip_file}")
+        continue
+
+    logger.info(f"🎬 Processing clip: {clip_file}")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio_path = temp_audio.name
+
+    try:
+        extract_audio_from_video(clip_file, 0, None, temp_audio_path)
+        transcription = transcribe_audio(temp_audio_path)
+        os.remove(temp_audio_path)
+
+        if not transcription:
+            transcription = clip.get("text", "(No transcription)")
+
+        clip_video = VideoFileClip(clip_file)
+        txt_clip = TextClip(transcription, fontsize=moviepy_config["font_size"],
+                            font=moviepy_config["font"], color=moviepy_config["text_color"])
+        txt_clip = txt_clip.set_position((moviepy_config["text_halign"], moviepy_config["text_valign"]))
+        txt_clip = txt_clip.set_duration(clip_video.duration)
+
+        final = CompositeVideoClip([clip_video, txt_clip])
+        final.write_videofile(output_captioned, codec="libx264", audio_codec="aac")
+
+        logger.info(f"✅ Captioned clip saved: {output_captioned}")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to process {clip_file}: {e}")
+        continue
