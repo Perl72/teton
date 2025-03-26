@@ -15,28 +15,8 @@ sys.path.append(lib_path)
 import downloader5
 import utilities1
 from utilities2 import initialize_logging, load_config
-
-
-from utilities3 import (
-   
-    set_imagemagick_env,
-    transcribe_full_video,
-    extract_full_audio,
-
-    transcribe_video_by_minute,
-   
-)
-
-from utilities4 import (
-    should_perform_task,
-    get_existing_task_output,
-    extend_metadata_with_task_output,
-    find_url_json,
-    copy_metadata_to_backup,
-    load_default_tasks,
-    add_default_tasks_to_metadata,
-    update_task_output_path
-)
+from utilities3 import set_imagemagick_env, transcribe_full_video, extract_full_audio
+from utilities4 import should_perform_task, get_existing_task_output, extend_metadata_with_task_output, find_url_json, copy_metadata_to_backup, load_default_tasks, add_default_tasks_to_metadata, update_task_output_path
 
 # ======================================
 # Task Definition
@@ -135,23 +115,28 @@ def main():
             **platform_config.get("watermark_config", {}),
         }
 
-
         params["task"] = task  # ✅ add this
-
 
         # Log initial params before any function call
         logger.debug(f"Initial params: {params}")
 
-        # Execute function calls in sequence
+        # Execute the downloader function (to fetch the video)
+        try:
+            downloader_result = downloader5.download_video(params)
+            if not downloader_result:  # If no video was downloaded
+                logger.warning(f"No video to download for URL: {url}. Skipping to next URL.")
+                return  # Exit this function early and move to the next URL
+        except Exception as e:
+            logger.error(f"Error in downloading video for URL: {url}: {e}")
+            return  # Exit this function early and move to the next URL
+
+        # Continue with other functions only if video is successfully downloaded
         function_calls = [
             downloader5.mask_metadata,
             downloader5.create_original_filename,
-            downloader5.download_video,
             utilities1.store_params_as_json,
-            copy_metadata_to_backup, 
-            extend_metadata_with_task_output
-
-              
+            copy_metadata_to_backup,
+            extend_metadata_with_task_output,
         ]
 
         for func in function_calls:
@@ -161,7 +146,7 @@ def main():
                 logger.debug(f"Before calling {func.__name__}, params: {params}")
 
                 result = func(params)
-                
+
                 if result:  # If the function returns a result (typically a dictionary)
                     params.update(result)
                     # Log the params after the function has updated it
@@ -173,26 +158,15 @@ def main():
 
         # Final output check
         original_filename = params.get("original_filename")
-
         if original_filename:
             logger.info(f"Downloaded file: {original_filename}")
-            
+
             metadata_path = params.get("full_metadata_json")
             if metadata_path:
                 add_default_tasks_to_metadata(metadata_path)
                 update_task_output_path(metadata_path, task, original_filename)  # ✅ ← Add this
             else:
                 logger.warning("No metadata path found — skipping default task injection.")
-
-  
-           
-
-            metadata_path = params.get("full_metadata_json")
-            if metadata_path:
-                add_default_tasks_to_metadata(metadata_path)
-            else:
-                logger.warning("No metadata path found — skipping default task injection.")
-
 
         else:
             logger.warning("No filename produced after download.")
