@@ -13,9 +13,14 @@ lib_path = os.path.join(current_dir, "../lib/python_utils")
 sys.path.append(lib_path)
 
 # === Imports from shared utils ===
-from utilities2 import initialize_logging
-from utilities3 import extract_audio_from_video, transcribe_audio
-from utilities4 import generate_dynamic_clips_from_metadata
+from utilities2 import initialize_logging, load_app_config
+from utilities3 import extract_audio_from_video, transcribe_audio, generate_dynamic_clips_from_metadata
+
+# Initialize logger
+logger = initialize_logging()
+
+
+
 
 # ==================================================
 # CLIPS CONFIGURATION 
@@ -39,18 +44,29 @@ if len(sys.argv) < 2:
     print("Usage: python call_captions.py <video_path>")
     sys.exit(1)
 
-logger = initialize_logging()
+
+# Validate video path argument
 video_path = sys.argv[1]
 video_name = os.path.basename(video_path).replace(".mp4", "")
 json_path = os.path.join("metadata", f"{video_name}.json")
 
+# Load app configuration
+app_config = load_app_config()
+
+# Extract watermark and captions configuration from app config
+watermark_config = app_config.get("watermark_config", {})
+caption_config = app_config.get("captions", {})
+
+# Check for metadata file
 if not os.path.exists(json_path):
     logger.error(f"Metadata not found: {json_path}")
     sys.exit(1)
 
+# Read and load metadata from the JSON file
 with open(json_path, "r") as f:
     metadata = json.load(f)
 
+# Check for clips in metadata
 clips = metadata.get("clips", [])
 if not clips:
     logger.warning("No clips defined in metadata.")
@@ -61,6 +77,7 @@ logger.info(f"🧩 Found {len(clips)} clips in metadata. Starting caption overla
 # Use the proper output directory derived from video metadata
 output_dir = metadata.get("output_dir") or moviepy_config["clips_directory"]
 
+# Process each clip
 for clip in clips:
     clip_name = clip["name"]
     clip_file = os.path.join(output_dir, f"{clip_name}.mp4")
@@ -72,10 +89,12 @@ for clip in clips:
 
     logger.info(f"🎬 Processing clip: {clip_file}")
 
+    # Create a temporary file for audio extraction
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
         temp_audio_path = temp_audio.name
 
     try:
+        # Extract audio from video and transcribe it
         extract_audio_from_video(clip_file, 0, None, temp_audio_path)
         transcription = transcribe_audio(temp_audio_path)
         os.remove(temp_audio_path)
@@ -83,6 +102,7 @@ for clip in clips:
         if not transcription:
             transcription = clip.get("text", "(No transcription)")
 
+        # Create the video with the caption overlay
         clip_video = VideoFileClip(clip_file)
         txt_clip = TextClip(transcription, fontsize=moviepy_config["font_size"],
                             font=moviepy_config["font"], color=moviepy_config["text_color"])

@@ -1,12 +1,11 @@
 ./bin/call_download.py
-./bin/1.git.sh
 ./bin/call_watermark.py
-./bin/call_ken.py
 ./bin/call_clips.py
 ./bin/call_captions.py
 ./bin/call_clipped_captions.py
 ./bin/call_screenshot.py
-./bin/4.driver.pl
+./bin/continue_tasks.py
+./bin/dispatch.py
 ./Changes
 ./MANIFEST
 ./requirements.txt
@@ -18,8 +17,8 @@
 ./t/00-load.t
 ./t/18.download.t
 ./t/15.download.t
-./t/22.t
-./t/23.t
+./t/25.t
+./t/31.t
 ./t/pod-coverage.t
 ./xt/boilerplate.t
 ./README.md
@@ -28,9 +27,12 @@
 ./lib/python_utils/utilities1.py
 ./lib/python_utils/watermarker2.py
 ./lib/python_utils/downloader5.py
-./lib/python_utils/make_clips.py
+./lib/python_utils/tasks_lib.py
+./lib/python_utils/utilities2.py
+./lib/python_utils/utilities3.py
+./lib/python_utils/clips_audio.py
 ./conf/config.json
 ./conf/app_config.json
 ./conf/cookies.txt
-./conf/cookies_formatted.txt
+./conf/default_tasks.json
 

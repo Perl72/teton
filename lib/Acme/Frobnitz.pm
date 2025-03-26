@@ -210,7 +210,6 @@ sub call_dispatch {
     my $script_path = $class->_get_script_path("dispatch.py");  
     my $python_path = $class->_get_python_path();
     print "Running command: $python_path $script_path  $url\n";
-
     my $output;
     eval {
         $output = capturex($python_path, $script_path, $url);
@@ -222,6 +221,37 @@ sub call_dispatch {
     chomp($output);
     return $output;
 }
+
+
+sub continue_tasks {
+    my ($class, $input_video) = @_;
+    die "Input video file not provided.\n" unless $input_video;
+
+
+    my $script_path = $class->_get_script_path("continue_tasks.py");
+    my $python_path = $class->_get_python_path();
+    print "Running command: $python_path $script_path $input_video \n";
+    $DB::single = 1; 
+    my $output;
+eval {
+    $output = capturex($python_path, $script_path, $input_video);
+};
+if ($@) {
+    warn "🔥 Python script failed!\n";
+    warn "Script: $script_path\n";
+    warn "Input : $input_video\n";
+    warn "Error : $@\n";
+    die "Error adding captions with $script_path\n";
+}
+
+    if ($@) {
+        die "Error adding captions with $script_path: $@\n";
+    }
+
+    chomp($output); # Remove trailing newlines from Python output
+    return $output;
+}
+
 
 
 

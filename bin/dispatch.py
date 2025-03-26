@@ -22,9 +22,8 @@ TASK_DISPATCH = {
     "make_clips": "bin/call_make_clips.py",
     "extract_audio": "bin/call_extract_audio.py",
     "generate_captions": "bin/call_captions.py",
-    "post_process": "bin/call_screenshots"
+    "post_process": "bin/call_screenshots.py"
 }
-
 
 def execute_tasks(task_config, url, to_process, dry_run=False):
     """Run appropriate script for each task based on its config."""
@@ -38,16 +37,19 @@ def execute_tasks(task_config, url, to_process, dry_run=False):
         # Use URL for download; use file path for all others
         task_input = url if task == "perform_download" else to_process
 
-        if status is True:
+        if status is True:  # Only execute if the task flag is True
             logging.info(f"🚀 Running task: {task} -> {script}")
             if dry_run:
                 logging.info(f"[Dry Run] Would run: python {script} {task_input}")
             else:
                 subprocess.run(["python", script, task_input])
-        elif isinstance(status, str):
+        elif isinstance(status, str):  # Task already completed (status is a string)
             logging.info(f"✅ Task already completed: {task} @ {status}")
         else:
             logging.info(f"⏭️  Skipping task: {task}")
+
+
+
 
 
 def run_my_existing_downloader(url, logger):
