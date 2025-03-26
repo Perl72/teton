@@ -5,7 +5,7 @@
         "make_clips": true,
         "extract_audio": true,
         "generate_captions": true,
-        "post_processed": false  
+        "post_processed": true 
     },
     "video_download": {
         "format": "bestvideo[height<=?1080]+bestaudio/best",

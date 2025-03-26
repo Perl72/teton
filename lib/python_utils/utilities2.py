@@ -45,6 +45,7 @@ import time
 import speech_recognition as sr
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, ColorClip, concatenate_videoclips
 import threading
+import platform
 
 logger = logging.getLogger(__name__)
 
@@ -95,16 +96,14 @@ def initialize_logging():
     logger.info("Logging initialized.")
     return logger
 
-
 def load_app_config():
     """Load the application configuration from a JSON file."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "../../")
-    
+    base_dir = os.path.join(current_dir, "../../")  # 👈 define it here first
+    config_path = os.path.join(base_dir, "conf/app_config.json")  # 👈 correct path
+
     if not os.path.exists(base_dir):
         raise FileNotFoundError(f"Base directory not found at {base_dir}")
-    
-    config_path = os.path.join(base_dir, "conf/app_config.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found at {config_path}")
@@ -115,6 +114,7 @@ def load_app_config():
         return app_config
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON configuration at {config_path}: {e}")
+
 
 # ==================================================
 # AUDIO EXTRACTION AND CAPTIONING
@@ -340,7 +340,7 @@ def create_subdir(base_dir="clips", subdir_name="orange"):
 def load_config():
     """Load configuration based on the operating system."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(current_dir, "../conf/config.json")
+    config_path = os.path.join(current_dir, "../../conf/config.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found at {config_path}")
@@ -353,4 +353,53 @@ def load_config():
         raise ValueError(f"Unsupported platform: {os_name}")
 
     return config[os_name]
+
+def process_clips_with_captions(config, clips, logger, input_video, output_dir):
+    """
+    Process clips with transcription and captioning
+    Args:
+        config (dict): Full app config
+        clips (dict): Dictionary of clip name -> clip list with start/end
+        logger (Logger): Logger object
+        input_video (str): Path to the input video
+        output_dir (str): Directory to save output clips
+    """
+    video_clip = VideoFileClip(input_video)
+    clips_directory = os.path.join(output_dir, "clips")
+    os.makedirs(clips_directory, exist_ok=True)
+
+    for clip_name, clip_list in clips.items():
+        for clip in clip_list:
+            start, end = clip["start"], clip["end"]
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+                audio_path = extract_audio_from_video(input_video, start, end, temp_audio_file.name)
+                transcription = transcribe_audio(audio_path)
+                os.remove(audio_path)
+
+            if transcription:
+                logger.info(f"Clip {clip_name}: Transcription -> {transcription}")
+                clip["text"] = transcription
+
+            output_file = os.path.join(clips_directory, f"{clip_name}.mp4")
+            logger.info(f"Processing Clip: {clip_name} ({start}-{end} sec)")
+
+            # Step 1: Extract subclip and write to disk before captioning
+            clip_segment = video_clip.subclip(start, end)
+            clip_segment.write_videofile(output_file, codec="libx264", audio_codec="aac")
+
+            # Step 2: Feed the written clip into the captioning pipeline
+            logger.info(f"Applying captions using external module...")
+            captions_config = config.get("captions", {}).copy()
+            captions_config["input_video_path"] = output_file
+            captions_config["download_path"] = clips_directory
+            captions_config["paragraph"] = transcription
+
+            from basic_captions3 import add_captions
+            result = add_captions(captions_config, logger)
+            if result:
+                logger.info(f"Captioning completed: {result['to_process']}")
+            else:
+                logger.error("Captioning failed.")
+
 

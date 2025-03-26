@@ -1,290 +1,119 @@
-
-import sys
-import logging
 import os
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+import sys
+import json
+import logging
 import tempfile
-import time
-import speech_recognition as sr
+from datetime import datetime
 from urllib.parse import urlparse
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+
+# === Path Setup ===
+current_dir = os.path.dirname(os.path.abspath(__file__))
+lib_path = os.path.join(current_dir, "../lib/python_utils")
+sys.path.append(lib_path)
+
+# === Imports from shared utils ===
+from utilities2 import initialize_logging, load_app_config
+from utilities3 import extract_audio_from_video, transcribe_audio, generate_dynamic_clips_from_metadata
+
+# Initialize logger
+logger = initialize_logging()
+
+
 
 
 # ==================================================
 # CLIPS CONFIGURATION 
 # ==================================================
 moviepy_config = {
-    "clips_directory": "clips/",  # Directory where clips will be stored
-    "width": 1280,  # Video width
-    "height": 720,  # Video height
-    "font": "Arial",  # Font file for text overlay
-    "font_size": 64,  # Font size for overlay text
-    "text_halign": "left",  # Horizontal alignment for overlay text (centered)
-    "text_valign": "center",  # Vertical alignment for overlay text (centered)
-    "output_format": "mp4",  # Output format
-    "text_color": "white",  # Color of the text overlay
+    "clips_directory": "clips/",
+    "width": 1280,
+    "height": 720,
+    "font": "Arial",
+    "font_size": 64,
+    "text_halign": "left",
+    "text_valign": "center",
+    "output_format": "mp4",
+    "text_color": "white",
 }
 
-clips = [
-    {
-        "start": 3,  # Clip start time (in seconds)
-        "end": 10,   # Clip end time (in seconds)
-        "text": "First clip",  # Default text
-        "name": "clip_1"  # Name of the clip file
-    },
-    {
-        "start": 20,
-        "end": 50,
-        "text": "Bollocks",
-        "name": "clip_2"
-    },
-    {
-        "start": 120,
-        "end": 170,
-        "text": "Bollocks",
-        "name": "treason_weasal"
-    },
-    {
-        "start": 150.0,
-        "end": 168.0,
-        "text": "Bollocks",
-        "name": "clip_4"
-    }
-]
-
-
-# Mapping of known platforms to standard names
-KNOWN_VENDORS = {
-    "instagram.com": "instagram",
-    "youtube.com": "youtube",
-    "youtu.be": "youtube",
-    "tiktok.com": "tiktok",
-    "twitter.com": "twitter",
-    "x.com": "twitter",
-    "facebook.com": "facebook",
-    "fb.watch": "facebook",
-    "vimeo.com": "vimeo",
-    "twitch.tv": "twitch"
-}
-
-
-
-
 # ==================================================
-# LOGGING INITIALIZATION
+# MAIN
 # ==================================================
-def initialize_logging():
-    log_dir = "./logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "moviepy_clips.log")
-
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    # File logging
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
-
-    # Console logging
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter("%(asctime)s - %(message)s")
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    logger.info("Logging initialized.")
-    return logger
-
-# ==================================================
-# AUDIO EXTRACTION AND TRANSCRIPTION
-# ==================================================
-def extract_audio_from_video(video_path, start_time, end_time, temp_audio_path):
-    """Extracts audio from the video clip for the given time range."""
-    try:
-        video = VideoFileClip(video_path)
-        video = video.subclip(start_time, end_time)
-        audio_path = temp_audio_path
-        video.audio.write_audiofile(audio_path)
-        print(f"Audio extracted to {audio_path}")
-        return audio_path
-    except Exception as e:
-        print(f"Error extracting audio: {e}")
-        return None
-
-def transcribe_audio(audio_path):
-    """Transcribe the audio using speech recognition."""
-    recognizer = sr.Recognizer()
-    try:
-        with sr.AudioFile(audio_path) as source:
-            audio_data = recognizer.record(source)
-        text = recognizer.recognize_google(audio_data)
-        print(f"Transcription: {text}")
-        return text
-    except sr.UnknownValueError:
-        print("Google Speech Recognition could not understand the audio")
-        return None
-    except sr.RequestError as e:
-        print(f"Could not request results from Google Speech Recognition service; {e}")
-        return None
-
-def ensure_clips_directory(clips_directory):
-    if not os.path.exists(clips_directory):
-        os.makedirs(clips_directory)
-        logger.info(f"Created clips directory: {clips_directory}")
-
-# ==================================================
-# VIDEO CLIPPING AND TEXT REPLACEMENT
-# ==================================================
-def process_video_for_clip_and_transcription(video_path, start_time, end_time, text_overlay):
-    """Extract audio, transcribe it, replace original text, and prepare the clip."""
-    # Create a temporary file for audio extraction
-    with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
-        audio_path = temp_audio_file.name + ".wav"
-
-        # Extract audio and transcribe it
-        extracted_audio = extract_audio_from_video(video_path, start_time, end_time, audio_path)
-        if extracted_audio:
-            transcription = transcribe_audio(extracted_audio)
-
-            # Clean up temporary audio file
-            os.remove(extracted_audio)
-
-            # Process the video clip with the transcription text
-            video_clip = VideoFileClip(video_path).subclip(start_time, end_time)
-
-            # If transcription exists, replace the original text with the transcribed text
-            if transcription:
-                text_overlay = transcription  # Replace the original text with transcription
-
-            # Log the new text that would be used for overlay or replacement (just for verification)
-            logger.info(f"Text overlay (or replacement) for {text_overlay}")
-
-            # No writing or saving yet, just returning the video clip
-            return video_clip, text_overlay
-        else:
-            return None, None
-
-def get_user_confirmation(text):
-    """Prompt the user to accept or change the transcription text."""
-    print(f"Text detected: '{text}'")
-    print("Accept this text? (y/n): ", end="", flush=True)
-
-    # Set a timeout for user input
-    start_time = time.time()
-    user_input = ""
-    while time.time() - start_time < 3:  # 3-second timer
-        if user_input.lower() in ["y", "n"]:
-            break
-        if user_input == "":
-            user_input = input()
-        else:
-            user_input = input()
-
-    if user_input.lower() == "y":
-        return text
-    elif user_input.lower() == "n":
-        print(f"Original text: {text}")
-        changed_text = input("Enter new text (or press Enter to keep the original): ")
-        return changed_text if changed_text else text
-    else:
-        return text  # Default to original text if no input or invalid input
-
-def process_clips_moviepy(moviepy_config, clips, logger):
-    input_video = sys.argv[1]  # Get input video path from command line argument
-    clips_directory = moviepy_config["clips_directory"]
-    
-    # Log global config values
-    logger.info(f"Processing video: {input_video}")
-    logger.info(f"Output directory: {clips_directory}")
-    
-    # Ensure the clips directory exists
-    ensure_clips_directory(clips_directory)
-    
-    # Load the input video using moviepy
-    video_clip = VideoFileClip(input_video)
-    
-    # Iterate through clips and process each one
-    for clip in clips:
-        start, end, text, name = clip["start"], clip["end"], clip["text"], clip["name"]
-        output_file = os.path.join(clips_directory, f"{name}.mp4")
-        
-        # Log the clip-specific values
-        logger.info(f"Clip Name: {name}")
-        logger.info(f"Clip Start Time: {start}")
-        logger.info(f"Clip End Time: {end}")
-        logger.info(f"Text to Overlay: {text}")
-        logger.info(f"Output File: {output_file}")
-        
-        # Extract the clip
-        clip = video_clip.subclip(start, end)
-
-        # Create a TextClip for the overlay text
-        txt_clip = TextClip(text, fontsize=moviepy_config["font_size"], font=moviepy_config["font"], color=moviepy_config["text_color"])
-        
-        # Set the position and duration of the text
-        txt_clip = txt_clip.set_position((moviepy_config["text_halign"], moviepy_config["text_valign"])).set_duration(clip.duration)
-        
-        # Overlay the text on the video clip
-        video_with_text = CompositeVideoClip([clip, txt_clip])
-
-        # Write the result to the output file
-        video_with_text.write_videofile(output_file, codec="libx264", audio_codec="aac")
-        
-        logger.info(f"Clip {name} processed successfully.")
-
-
-def get_vendor(video_url):
-    """Extracts and normalizes the vendor (host) from the video URL."""
-    parsed_url = urlparse(video_url)
-    domain = parsed_url.netloc.lower().lstrip("www.")  # Strip 'www.'
-
-    # Return mapped vendor name or default to domain
-    return KNOWN_VENDORS.get(domain, domain)
-
-
-
-# ==================================================
-# MAIN EXECUTION
-# ==================================================
-
-# Ensure the input file is provided as an argument
 if len(sys.argv) < 2:
-    print("Error: No input video file provided.")
+    print("Usage: python call_captions.py <video_path>")
     sys.exit(1)
 
-# Initialize logger
-logger = initialize_logging()
 
-video_url = sys.argv[1]
-vendor = get_vendor(video_url)
+# Validate video path argument
+video_path = sys.argv[1]
+video_name = os.path.basename(video_path).replace(".mp4", "")
+json_path = os.path.join("metadata", f"{video_name}.json")
 
-print(f"Vendor: {vendor}")
+# Load app configuration
+app_config = load_app_config()
 
-# Ensure clips directory exists
-ensure_clips_directory(moviepy_config["clips_directory"])
+# Extract watermark and captions configuration from app config
+watermark_config = app_config.get("watermark_config", {})
+caption_config = app_config.get("captions", {})
 
-# Iterate through clips
-processed_clips = []
+# Check for metadata file
+if not os.path.exists(json_path):
+    logger.error(f"Metadata not found: {json_path}")
+    sys.exit(1)
+
+# Read and load metadata from the JSON file
+with open(json_path, "r") as f:
+    metadata = json.load(f)
+
+# Check for clips in metadata
+clips = metadata.get("clips", [])
+if not clips:
+    logger.warning("No clips defined in metadata.")
+    sys.exit(1)
+
+logger.info(f"🧩 Found {len(clips)} clips in metadata. Starting caption overlay...")
+
+# Use the proper output directory derived from video metadata
+output_dir = metadata.get("output_dir") or moviepy_config["clips_directory"]
+
+# Process each clip
 for clip in clips:
-    start_time = clip["start"]
-    end_time = clip["end"]
-    text = clip["text"]
-    
-    # Process each clip
-    processed_clip, updated_text = process_video_for_clip_and_transcription(
-        sys.argv[1], start_time, end_time, text
-    )
-    
-    # If transcribed text exists, confirm with the user
-    if updated_text:
-        updated_text = get_user_confirmation(updated_text)
-        clip["text"] = updated_text
-    processed_clips.append(clip)
+    clip_name = clip["name"]
+    clip_file = os.path.join(output_dir, f"{clip_name}.mp4")
+    output_captioned = os.path.join(output_dir, f"{clip_name}_captioned.mp4")
 
-# Process clips using moviepy
-process_clips_moviepy(moviepy_config, processed_clips, logger)
+    if not os.path.exists(clip_file):
+        logger.warning(f"Clip file missing: {clip_file}")
+        continue
 
+    logger.info(f"🎬 Processing clip: {clip_file}")
 
+    # Create a temporary file for audio extraction
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio_path = temp_audio.name
 
+    try:
+        # Extract audio from video and transcribe it
+        extract_audio_from_video(clip_file, 0, None, temp_audio_path)
+        transcription = transcribe_audio(temp_audio_path)
+        os.remove(temp_audio_path)
+
+        if not transcription:
+            transcription = clip.get("text", "(No transcription)")
+
+        # Create the video with the caption overlay
+        clip_video = VideoFileClip(clip_file)
+        txt_clip = TextClip(transcription, fontsize=moviepy_config["font_size"],
+                            font=moviepy_config["font"], color=moviepy_config["text_color"])
+        txt_clip = txt_clip.set_position((moviepy_config["text_halign"], moviepy_config["text_valign"]))
+        txt_clip = txt_clip.set_duration(clip_video.duration)
+
+        final = CompositeVideoClip([clip_video, txt_clip])
+        final.write_videofile(output_captioned, codec="libx264", audio_codec="aac")
+
+        logger.info(f"✅ Captioned clip saved: {output_captioned}")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to process {clip_file}: {e}")
+        continue
