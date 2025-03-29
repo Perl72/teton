@@ -23,16 +23,18 @@ def extract_editorial_content(url):
 
     # Fallback: Extract first 10 paragraphs
     paragraphs = soup.find_all("p")
-    return "\n\n".join(p.get_text(strip=True) for p in paragraphs[:10])  # Get first 10 paragraphs
+    return "\n\n".join(p.get_text(strip=True) for p in paragraphs[:80])  # Get first 10 paragraphs
 
 # Example usage 
 #url = "https://www.deseret.com/2019/2/4/20664993/tim-ballard-i-ve-fought-sex-trafficking-at-the-border-this-is-why-we-need-a-wall/"
-url = "https://www.foxnews.com/opinion/ive-fought-sex-trafficking-as-a-dhs-special-agent-we-need-to-build-the-wall-for-the-children"
+#url = "https://www.foxnews.com/opinion/ive-fought-sex-trafficking-as-a-dhs-special-agent-we-need-to-build-the-wall-for-the-children"
+
+url = "https://www.presidency.ucsb.edu/documents/remarks-meeting-human-trafficking-the-mexico-united-states-border-and-exchange-with?utm_source=chatgpt.com"
 content = extract_editorial_content(url)
 print(content)
 
 # Save to file
-with open("page2.txt", "w", encoding="utf-8") as f:
+with open("2019.txt", "w", encoding="utf-8") as f:
     f.write(content)
 
 
