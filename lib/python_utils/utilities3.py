@@ -198,9 +198,6 @@ def run_whisper_fallback(audio_path):
     return result["text"]
 
 
-def get_existing_task_output(task: str, task_config: dict) -> str | None:
-    val = task_config.get(task)
-    return val if isinstance(val, str) else None
 
 
 def load_config():

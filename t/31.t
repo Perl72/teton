@@ -39,35 +39,9 @@ my $frobnitz = Acme::Frobnitz->new();
 
 # Define list of URLs (from your clips/1.timmy.txt)
 my @video_urls = (
-    'https://www.instagram.com/p/DHErSwNhaXp/',
-    'https://www.instagram.com/p/DHAO0n5tTG0/',
-    'https://www.instagram.com/p/DG_vXnIsb-y/', #intelligence unit
-    'https://www.instagram.com/p/DG_jfH8xSdP/',
-    'https://www.instagram.com/p/DG-_j27R6yb/?img_index=1',
-    'https://www.instagram.com/p/DG9hR9CshKQ/?img_index=1',
-    'https://www.instagram.com/p/DG8g_tORkIB/',
-    'https://www.instagram.com/p/DG6idPgvTH_/',
-    'https://www.instagram.com/p/DG1iySAMuSB/',
-    'https://www.instagram.com/p/DGuexsmszBD/',
-    'https://www.instagram.com/p/DGuel9ksMZi/',
-    'https://www.instagram.com/p/DGs7QBUgv6Q/?img_index=1', #Aerial Rec
-    'https://www.instagram.com/p/DGqxZQAR7i2/?img_index=1',
-    'https://www.instagram.com/p/DGqwcWKx4uP/',
-    'https://www.instagram.com/p/DGpNctHt6v5/',
-    'https://www.instagram.com/p/DGkw8jaxgeb/',
-    'https://www.instagram.com/p/DGjJ_-eRGDb/',
-    'https://www.instagram.com/p/DGeg-QuJPeA/',
-    'https://www.instagram.com/p/DGdjlNIxbsD/',
-    'https://www.instagram.com/p/DGdYFvARfUY/',
-    'https://www.instagram.com/p/DGbmXxxhE-b/',
-    'https://www.instagram.com/p/DGZc1l4s0nB/',
-    'https://www.instagram.com/p/DGZIbBpBhXf/',
-    'https://www.instagram.com/p/DGYywtFy9qH/',
-    'https://www.instagram.com/reel/DGkw8jaxgeb/',
-    'https://www.instagram.com/reel/DGqwcWKx4uP/',
-    'https://www.instagram.com/p/DGTZ0KXRsFb/',
-    'https://www.instagram.com/p/DGJ8qN2s2ys/',
-    '#mar12',
+    '
+
+	'https://www.youtube.com/watch?v=7Yhnml4DW9g',
 );
 
 # Process each video URL

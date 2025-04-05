@@ -74,11 +74,11 @@ sub _get_python_path {
     return $python_path;
 }
 
-# Find the Python script path dynamically
+# Find the Python script path dynamically update 4-2-25
 sub _get_script_path {
     my ($class, $script_name) = @_;
-    my $os_config = _get_os_config();
-    my $base_dir = $os_config->{base_dir};
+
+    my $base_dir = File::Spec->catdir($FindBin::Bin, '..');  # Parent of lib/
     my $script_path = File::Spec->catfile($base_dir, 'bin', $script_name);
 
     unless (-f $script_path) {
@@ -87,6 +87,7 @@ sub _get_script_path {
 
     return $script_path;
 }
+
 
 sub download {
     my ($class, $hyperlink) = @_;

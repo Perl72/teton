@@ -181,7 +181,12 @@ def find_url_json(url, metadata_dir="./metadata"):
     return None, None
 
 
-def get_existing_task_output(task: str, task_config: dict) -> str | None:
+#def get_existing_task_output(task: str, task_config: dict) -> str | None:
+#  ^^^ don't let this happen easily the bar is trouble, breaks things
+from typing import Optional
+
+def get_existing_task_output(task: str, task_config: dict) -> Optional[str]:
+
     """
     Checks if there is an existing output for the given task in the task configuration.
 
