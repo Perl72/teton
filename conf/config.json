@@ -6,7 +6,7 @@
     "image_dir": "/Users/mymac/Pictures",
     "resize_dir": "/Users/mymac/Pictures/resize",
     "target_usb": "/Volumes/BallardT1",
-    "cookie_path": "/Users/mymac/Desktop/cookies.txt",
+    "cookie_path": "/Users/mymac/Desktop/teton/conf/cookies.txt",
     "imagemagick_binary": "/opt/homebrew/bin/magick",
     "logging": {
       "level": "DEBUG",
@@ -23,7 +23,7 @@
     "image_dir": "/home/fritz/Pictures/post",
     "resize_dir": "/home/fritz/Pictures/resize",
     "target_usb": "/media/fritz/E4B0-3FC21",
-    "cookie_path": "/home/fritz/Desktop/cookies.txt",
+    "cookie_path": "/home/fritz/Desktop/teton/conf/cookies.txt",
     "imagemagick_binary": "",
     "logging": {
       "level": "DEBUG",

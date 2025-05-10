@@ -31,9 +31,9 @@ my $logger = Log::Log4perl->get_logger();
 
 # Instantiate Frobnitz object
 my $frobnitz = Acme::Frobnitz->new();
-# my $video_url = 'https://www.instagram.com/p/DFy5m4MotA5/';
-# test with yt  'https://www.youtube.com/watch?v=DAjMZ6fCPOo';
-my $video_url = 'https://www.youtube.com/watch?v=DAjMZ6fCPOo';;
+# my $video_url = 'https://www.youtube.com/watch?v=ai2KJDqgh7M';
+#my $video_url = 'https://www.youtube.com/watch?v=DAjMZ6fCPOo';;
+my $video_url = 'https://www.youtube.com/watch?v=ai2KJDqgh7M';
 
 $logger->info("Starting download for URL: $video_url");
 my $download_output = $frobnitz->download($video_url);

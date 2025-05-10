@@ -23,9 +23,15 @@ Revision history for Acme-Frobnitz
         Added the `clips` capability for specifying video segments.
         Updated configuration files to support clip definitions in `config.json`.
         Enhanced Python and Perl scripts to process and apply clips during video processing.
-        2025-03-26 21:00  
-        Introduced task-aware processing for smarter, modular execution.  
-        Implemented batch processing support for handling multiple inputs efficiently.  
-        Integrated audio recognition capabilities for more robust media analysis.  
 
+0.06    2025-03-26 21:00
+        Introduced task-aware processing for smarter, modular execution.
+        Implemented batch processing support for handling multiple inputs efficiently.
+        Integrated audio recognition capabilities for more robust media analysis.
 
+0.07    2025-05-09 21:00
+        Removed the `downloader5` module and merged its logic into `utilities1.py`.
+        All download-related functions now unified under the `ut1` alias.
+        Repaired missing `platform` import and corrected config path resolution.
+        Verified Facebook video downloads including metadata extraction and JSON sidecar output.
+        Confirmed working: `call_download.py` using `ut1` exclusively.

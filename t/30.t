@@ -35,7 +35,7 @@ my $frobnitz = Acme::Frobnitz->new();
 
 # Define a test video URL
 #my $video_url = 'https://www.youtube.com/watch?v=1udSWwkEQV0'; # _Visions of Glory_ Word Wise...Kitt
-my $video_url = 'https://www.youtube.com/watch?v=G2D3e5jMcWA'; # meidas touch
+my $video_url = 'https://www.youtube.com/watch?v=7Yhnml4DW9g'; # bern
 
 $logger->info("Starting test for video processing pipeline");
 $logger->info("Downloading video from: $video_url");
