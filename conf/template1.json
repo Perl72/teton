@@ -1,0 +1,88 @@
+{
+    "template_json": "./conf/template1.json",
+    "download_path": null,
+    "cookie_path": null,
+    "url": null,
+    "video_title": null,
+    "video_date": null,
+    "uploader": null,
+    "duration": null,
+    "width": null,
+    "height": null,
+    "id": null,
+    "ext": null,
+    "resolution": null,
+    "fps": null,
+    "tbr": null,
+    "protocol": null,
+    "vcodec": null,
+    "vbr": null,
+    "acodec": null,
+    "abr": null,
+    "asr": null,
+    "original_filename": null,
+    "to_process": null,
+    "default_tasks": {
+        "perform_download": false,
+        "apply_watermark": "/home/fritz/Desktop/bashful-backup/watermarked/Tim_Ballard_20250208_watermarked.mp4",
+        "make_clips": true,
+        "extract_audio": true,
+        "generate_captions": true,
+        "post_processed": false  
+    },
+    "video_download": {
+        "format": "bestvideo[height<=?1080]+bestaudio/best",
+        "bitrate": "5000k",
+        "noplaylist": true,
+        "cookie_path": "./conf/cookies.txt"
+    },
+    "watermark_config": {
+        "font": "Arial Bold",
+        "font_size": 64,
+        "username_color": "yellow",
+        "date_color": "cyan",
+        "timestamp_color": "red",
+        "username_position": ["left", "top"],
+        "date_position": ["left", "bottom"],
+        "metadata_backup_path": "./clips",
+        "timestamp_position": ["right", "bottom"]
+    },
+    "ken_burns": {
+        "brightness": 1.3,
+        "slide_length": 9,
+        "border": 0.03,
+        "source_path": "./data/4.source.txt",
+        "languages": ["en", "es", "fr"],
+        "style": {
+            "font": "Arial",
+            "font_size": 48,
+            "color": "white",
+            "background_color": "black",
+            "opacity": 0.8,
+            "border_color": "black",
+            "border_width": 2
+        }
+    },
+    "captions": {
+        "font": "Arial Bold",
+        "font_size": 64,
+        "username_color": "yellow",
+        "source_path": "./data/4.source.txt",
+        "overall_start": 1,
+        "caption_bottom": "75%",
+        "line_width": "8%",
+        "hor_offset": "4%",
+        "cap_length": 5,
+        "max_number": 60,
+        "max_char_width": 65,
+        "next_line": 1.7,
+        "pause_between_para": 2,
+        "image_dir": "/home/fritz/Pictures/post",
+        "shadow": {
+            "color": "black",
+            "offset": 5,
+            "opacity": 0.6
+        }
+    }
+}
+
