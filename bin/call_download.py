@@ -26,12 +26,12 @@ from datetime import datetime
 
 # === Path Setup ===
 current_dir = os.path.dirname(os.path.abspath(__file__))
-lib_path = os.path.join(current_dir, "../lib/python_utils")
+lib_path = os.path.join(current_dir, "../lib/")
 sys.path.append(lib_path)
 
 # === Imports ===
 import teton_utils as tu
-from task_lib import (
+from tasks_lib import (
     copy_metadata_to_backup,
     extend_metadata_with_task_output,
     add_default_tasks_to_metadata,
@@ -93,7 +93,11 @@ def main():
 
         # === Pre-Download Prep ===
         metadata = tu.mask_metadata(params)
-        params.update(metadata)
+        if metadata is None:
+            logger.error("❌ No metadata returned. Aborting task.")
+            return
+ 
+
 
         filename_info = tu.create_original_filename(params)
         params.update(filename_info)

@@ -26,7 +26,7 @@ from datetime import datetime
 
 # === Path Setup ===
 current_dir = os.path.dirname(os.path.abspath(__file__))
-lib_path = os.path.join(current_dir, "../lib/python_utils")
+lib_path = os.path.join(current_dir, "../lib/")
 sys.path.append(lib_path)
 
 # === Imports ===

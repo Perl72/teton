@@ -5,7 +5,7 @@
     "log_dir": "/Users/mymac/logs",
     "image_dir": "/Users/mymac/Pictures",
     "resize_dir": "/Users/mymac/Pictures/resize",
-    "target_usb": "/Volumes/BallardT1",
+    "target_usb": "/Volumes/Ballard2",
     "cookie_path": "/Users/mymac/Desktop/teton/conf/cookies.txt",
     "imagemagick_binary": "/opt/homebrew/bin/magick",
     "logging": {
