@@ -30,7 +30,7 @@ lib_path = os.path.join(current_dir, "../lib/")
 sys.path.append(lib_path)
 
 # === Imports ===
-import teton_utils as tu
+import fb_utils as tu
 from tasks_lib import (
     copy_metadata_to_backup,
     extend_metadata_with_task_output,
@@ -96,19 +96,17 @@ def main():
         if metadata is None:
             logger.error("❌ No metadata returned. Aborting task.")
             return
- 
-
+        params.update(metadata)
 
         filename_info = tu.create_original_filename(params)
         params.update(filename_info)
 
         # === Perform Download ===
-        result = tu.download_video(params)
-        if not result:
+        download_result = tu.download_video(params)
+        if not download_result:
             logger.warning(f"No video downloaded for URL: {url}")
             return
-
-        params.update(result)
+        params.update(download_result)
 
         json_result = tu.store_params_as_json(params)
         params.update(json_result)
@@ -128,7 +126,6 @@ def main():
             logger.info("📦 Task metadata updated.")
             print(params.get("original_filename"))
 
-
     except Exception as e:
         logger.error(f"❌ Unhandled error in main(): {e}")
         traceback.print_exc()
@@ -137,3 +134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

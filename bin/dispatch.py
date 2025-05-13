@@ -8,12 +8,12 @@ from datetime import datetime
 
 # Add lib path to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-lib_path = os.path.join(current_dir, "../lib/python_utils")
+lib_path = os.path.join(current_dir, "../lib/")
 sys.path.append(lib_path)
 
 # Import utilities
-from utilities2 import initialize_logging, load_config, load_app_config
-from utilities3 import find_url_json
+from teton_utils import initialize_logging, load_config, load_app_config
+from tasks_lib import find_url_json
 
 # Map tasks to their respective scripts
 TASK_DISPATCH = {

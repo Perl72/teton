@@ -211,14 +211,17 @@ def download_video(params: dict) -> dict:
 
 
 
+
+
 def extract_metadata(params: dict) -> dict:
     """
-    Extracts all available metadata from a YouTube video without downloading it and saves it to a file.
+    Extracts all available metadata from a video URL without downloading it and saves it to a file.
 
     Args:
         params (dict): Parameters for extracting metadata, including:
             - url (str): Video URL.
             - metadata_path (str): Path to save the metadata JSON file.
+            - video_download (dict): Optional configuration including cookie_path.
 
     Returns:
         dict: A dictionary containing all available metadata about the video.
@@ -229,12 +232,20 @@ def extract_metadata(params: dict) -> dict:
 
     url = params.get("url")
     metadata_path = params.get("metadata_path")
+    video_download_config = params.get("video_download", {})
 
     try:
         ydl_opts = {
             "noplaylist": True,
-            "skip_download": True,  # Skip actual video download
+            "skip_download": True,
         }
+
+        cookie_path = video_download_config.get("cookie_path")
+        if cookie_path and os.path.isfile(cookie_path) and os.path.getsize(cookie_path) > 0:
+            ydl_opts["cookiefile"] = cookie_path
+            logger.info(f"✅ Using cookie file: {cookie_path}")
+        else:
+            logger.info("⚠️ No valid cookie file used for metadata extraction.")
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=False)
@@ -248,6 +259,8 @@ def extract_metadata(params: dict) -> dict:
     except Exception as e:
         logger.error(f"Failed to extract metadata: {e}")
         return {}
+
+
 
 def initialize_logging():
     log_dir = "./logs"

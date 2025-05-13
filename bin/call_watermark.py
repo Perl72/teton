@@ -31,7 +31,7 @@ sys.path.append(lib_path)
 
 # === Imports ===
 from teton_utils import initialize_logging
-from watermark_utils import (
+from add_watermark import (
     load_app_config,
     add_watermark,
     add_default_tasks_to_metadata,
@@ -95,10 +95,11 @@ def main():
             output_path = result["to_process"]
             logger.info(f"✅ Watermarked video created: {output_path}")
             print(output_path)
+            
 
             add_default_tasks_to_metadata(json_path)
             update_result = update_task_output_path(json_path, task, output_path)
-            logger.debug(f"Metadata updated: {update_result}")
+            logger.debug(f"default_tasks updated: {update_result}")
         else:
             logger.error("Watermarking failed or returned no output.")
             sys.exit(1)
