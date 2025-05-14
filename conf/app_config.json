@@ -17,7 +17,7 @@
     },
     "watermark_config": {
         "font": "Arial Bold",
-        "font_size": 64,
+        "font_size": 30,
         "username_color": "yellow",
         "date_color": "cyan",
         "timestamp_color": "red",

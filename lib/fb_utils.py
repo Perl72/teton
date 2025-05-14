@@ -49,12 +49,19 @@
 # - mask_metadata(params: dict) -> dict
 #    Masks certain metadata for privacy and returns the masked data.
 #
+# - resolve_path(path: str, base: str = None) -> str:
+#    Resolves a possibly relative path to an absolute one, relative to a base directory.
+#
+# - safe_filename(name: str, max_len=255) -> str: 
+#    Sanitize filename by removing unsafe characters and limiting length.
+#
 # - store_params_as_json(params: dict) -> dict
 #    Stores the params dictionary as a JSON file in the output directory. The filename should match the video file, but with a .json extension.
 #
 # - unique_output_path(path: str, filename: str) -> str
 #    Generates a unique output file path by appending a counter to the filename if it already exists.
 #
+
 
 
 import os
@@ -65,6 +72,8 @@ import yt_dlp
 from datetime import datetime
 import sys
 import platform
+import traceback
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +405,33 @@ def mask_metadata(params):
 
         return normalized_metadata  # ✅ Now properly inside the function
 
+def resolve_path(path: str, base: str = None) -> str:
+    """
+    Resolves a possibly relative path to an absolute one, relative to a base directory.
+
+    Args:
+        path (str): The input path to resolve.
+        base (str): Optional base directory. Defaults to the directory of the calling script.
+
+    Returns:
+        str: Absolute path.
+    """
+    if os.path.isabs(path):
+        return path
+
+    if base is None:
+        base = os.path.dirname(os.path.abspath(__file__))
+
+    return os.path.abspath(os.path.join(base, path))
+
+def safe_filename(name: str, max_len=255) -> str:
+    """
+    Sanitize filename by removing unsafe characters and limiting length.
+    """
+    name = re.sub(r'[\\/*?:"<>|]', "_", name)         # remove invalid characters
+    name = re.sub(r'&[#a-zA-Z0-9]+;', '_', name)      # replace HTML entities
+    name = re.sub(r'\s+', '_', name)                  # collapse whitespace
+    return name[:max_len]
 
 
 

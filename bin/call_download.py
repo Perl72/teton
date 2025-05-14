@@ -11,7 +11,7 @@
 #   python call_download.py <video_url>
 #
 # DEPENDENCIES:
-#   - teton_utils.py
+#   - fb_utils.py
 #   - task_lib.py
 #
 # TASK NAME:
@@ -30,7 +30,8 @@ lib_path = os.path.join(current_dir, "../lib/")
 sys.path.append(lib_path)
 
 # === Imports ===
-import fb_utils as tu
+import fb_utils as fb
+import re
 from tasks_lib import (
     copy_metadata_to_backup,
     extend_metadata_with_task_output,
@@ -41,18 +42,25 @@ from tasks_lib import (
 task = "perform_download"
 
 # === Init Logging and Config ===
-logger = tu.initialize_logging()
-platform_config = tu.load_config()
+logger = fb.initialize_logging()
+
+# Ensure metadata directory exists
+metadata_dir = fb.resolve_path("./metadata")
+if not os.path.exists(metadata_dir):
+    logger.info(f"📁 Creating metadata directory: {metadata_dir}")
+    os.makedirs(metadata_dir, exist_ok=True)
+
+
+platform_config = fb.load_config()
 app_config = {"default_tasks": platform_config.get("default_tasks", {})}
 logger.info("🔴 Starting task: perform_download")
-
 
 def main():
     try:
         # === Verify Download Path ===
         target_usb = platform_config["target_usb"]
         download_date = datetime.now().strftime("%Y-%m-%d")
-        download_path = os.path.join(target_usb, download_date)
+        download_path = fb.resolve_path(os.path.join(target_usb, download_date))
 
         if not os.path.exists(target_usb):
             logger.error(f"USB drive {target_usb} is not mounted.")
@@ -78,37 +86,48 @@ def main():
             sys.exit(1)
 
         url = sys.argv[1].strip()
+        cookie_path = fb.resolve_path(platform_config.get("cookie_path"))
+
         params = {
             "download_path": download_path,
-            "cookie_path": platform_config.get("cookie_path"),
+            "url": url,
+            "task": task,
+            "metadata_path": os.path.join(metadata_dir, "metadata.json"),
+            "video_download": {
+                "cookie_path": cookie_path
+            },
             "url": url,
             "task": task,
         }
 
         if "facebook.com" in url:
             logger.info("➡️ Facebook video detected.")
-            if not os.path.exists(params["cookie_path"]):
-                logger.error(f"Missing cookie file: {params['cookie_path']}")
-                sys.exit(1)
+            cookie_path_check = params.get("video_download", {}).get("cookie_path")
+            if not os.path.exists(cookie_path_check):
+                logger.warning(f"⚠️ Cookie file not found: {cookie_path_check}. Continuing anyway.")
 
         # === Pre-Download Prep ===
-        metadata = tu.mask_metadata(params)
+        metadata = fb.mask_metadata(params)
         if metadata is None:
             logger.error("❌ No metadata returned. Aborting task.")
             return
         params.update(metadata)
 
-        filename_info = tu.create_original_filename(params)
+        # Sanitize video title for safe filenames
+        if "video_title" in params:
+            params["video_title"] = fb.safe_filename(params["video_title"])
+
+        filename_info = fb.create_original_filename(params)
         params.update(filename_info)
 
         # === Perform Download ===
-        download_result = tu.download_video(params)
+        download_result = fb.download_video(params)
         if not download_result:
             logger.warning(f"No video downloaded for URL: {url}")
             return
         params.update(download_result)
 
-        json_result = tu.store_params_as_json(params)
+        json_result = fb.store_params_as_json(params)
         params.update(json_result)
 
         logger.info(f"✅ Download complete: {params.get('original_filename')}")
