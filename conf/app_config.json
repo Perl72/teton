@@ -1,0 +1,53 @@
+{
+    "default_tasks": {
+        "perform_download": true,
+        "apply_watermark": true,
+        "make_clips": true,
+        "extract_audio": true,
+        "generate_captions": true,
+        "post_processed": true 
+    },
+    "video_download": {
+        "format": "bestvideo[height<=?1080]+bestaudio/best",
+        "bitrate": "5000k",
+        "noplaylist": true,
+        "cookie_path": "./conf/cookies.txt",
+        "metadata_backup_path": "./metadata"
+    },
+    "watermark_config": {
+        "font": "Arial Bold",
+        "font_size": 30,
+        "username_color": "yellow",
+        "date_color": "cyan",
+        "timestamp_color": "red",
+        "username_position": ["left", "top"],
+        "date_position": ["left", "bottom"],
+        "metadata_backup_path": "./metadata",
+        "timestamp_position": ["right", "bottom"]
+    },
+    "clips": {
+        "default_path": "data/1.cdh.yaml"
+    },
+    "captions": {
+        "font": "Arial Bold",
+        "font_size": 64,
+        "username_color": "yellow",
+        "source_path": "./data/4.source.txt",
+        "overall_start": 1,
+        "caption_bottom": "75%",
+        "line_width": "8%",
+        "hor_offset": "4%",
+        "cap_length": 5,
+        "max_number": 60,
+        "max_char_width": 65,
+        "next_line": 1.7,
+        "pause_between_para": 2,
+        "image_dir": "/home/fritz/Pictures/post",
+        "shadow": {
+            "color": "black",
+            "offset": 5,
+            "opacity": 0.6
+        }
+    }
+}
+

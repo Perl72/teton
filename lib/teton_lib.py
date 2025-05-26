@@ -467,7 +467,7 @@ def initialize_logging():
 def load_config():
     """Load configuration based on the operating system."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(current_dir, "../../conf/config.json")
+    config_path = os.path.join(current_dir, "../conf/config.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found at {config_path}")
@@ -547,8 +547,7 @@ def mask_metadata(params):
 def load_app_config():
     """Load the application configuration from a JSON file."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "../../")
-
+    base_dir = os.path.abspath(os.path.join(current_dir, ".."))
     if not os.path.exists(base_dir):
         raise FileNotFoundError(f"Base directory not found at {base_dir}")
 
