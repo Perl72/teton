@@ -49,6 +49,15 @@
 # - mask_metadata(params: dict) -> dict
 #    Masks certain metadata for privacy and returns the masked data.
 #
+# - resolve_fb_share_url(url: str) -> str:
+#    Follow Facebook share link redirection to get actual video URL.
+#
+# - resolve_path(path: str, base: str = None) -> str:
+#    Resolves a possibly relative path to an absolute one, relative to a base directory.
+#
+# - safe_filename(name: str, max_len=255) -> str:
+#    Sanitize filename by removing unsafe characters and limiting length.
+#
 # - store_params_as_json(params: dict) -> dict
 #    Stores the params dictionary as a JSON file in the output directory. The filename should match the video file, but with a .json extension.
 #
@@ -482,66 +491,95 @@ def load_config():
     return config[os_name]
 
 
-# New function to mask metadata
-def mask_metadata(params):
+# New function to mask metadata fb
+
+
+def mask_metadata(params: dict) -> dict:
     """
-    Masks certain metadata for privacy and returns the masked data.
-
-    Args:
-        params (dict): The input dictionary containing metadata.
-
-    Returns:
-        dict: A dictionary containing masked metadata fields.
+    Extract and normalize metadata using yt-dlp without downloading the video.
     """
+    try:
+        import yt_dlp
 
-    logger.info("Masking metadata")
-    masked_metadata = {}
+        url = params["url"]
+        cookie_path = params.get("video_download", {}).get("cookie_path")
 
-    # Extract metadata
-    metadata = extract_metadata(params)  # ✅ Indented properly
-    if metadata:
-        normalized_metadata = {}
-
-        key_mapping = {
-            "video_title": ["title"],
-            "video_date": ["upload_date"],
-            "uploader": ["uploader", "uploader_id"],
-            "file_path": ["file_path"],
-            "duration": ["duration"],
-            "width": ["width"],
-            "height": ["height"],
-            "ext": ["ext"],
-            "resolution": ["resolution"],
-            "fps": ["fps"],
-            "channels": ["channels"],
-            "filesize": ["filesize"],
-            "tbr": ["tbr"],
-            "protocol": ["protocol"],
-            "vcodec": ["vcodec"],
-            "vbr": ["vbr"],
-            "acodec": ["acodec"],
-            "abr": ["abr"],
-            "asr": ["asr"],
+        opts = {
+            "quiet": True,
+            "skip_download": True,
+            "no_warnings": True,
+            "cookiefile": cookie_path,
+            "simulate": True,
+            "noplaylist": True,
+            "force_generic_extractor": False,
+            "merge_output_format": "mp4",
         }
 
-        # Normalize metadata values
-        for standard_key, possible_keys in key_mapping.items():
-            for key in possible_keys:
-                if key in metadata:
-                    normalized_metadata[standard_key] = metadata[key]
-                    break  # Stop at the first found key
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
 
-        # Process video title separately (replace spaces)
-        if "video_title" in normalized_metadata:
-            normalized_metadata["video_title"] = normalized_metadata[
-                "video_title"
-            ].replace(" ", "_")
+        if info:
+            normalized_metadata = {}
+            key_mapping = {
+                "video_title": ["title"],
+                "video_date": ["upload_date"],
+                "uploader": ["uploader", "uploader_id"],
+                "file_path": ["file_path"],
+                "duration": ["duration"],
+                "width": ["width"],
+                "height": ["height"],
+                "ext": ["ext"],
+                "resolution": ["resolution"],
+                "fps": ["fps"],
+                "channels": ["channels"],
+                "filesize": ["filesize"],
+                "tbr": ["tbr"],
+                "protocol": ["protocol"],
+                "vcodec": ["vcodec"],
+                "vbr": ["vbr"],
+                "acodec": ["acodec"],
+                "abr": ["abr"],
+                "asr": ["asr"],
+            }
 
-        logger.info("Extracted and normalized metadata:")
-        for key, value in normalized_metadata.items():
-            logger.info(f"{key}: {value}")
+            for standard_key, possible_keys in key_mapping.items():
+                for key in possible_keys:
+                    if key in info:
+                        normalized_metadata[standard_key] = info[key]
+                        break
 
-        return normalized_metadata  # ✅ Now properly inside the function
+            if "video_title" in normalized_metadata:
+                normalized_metadata["video_title"] = normalized_metadata[
+                    "video_title"
+                ].replace(" ", "_")
+
+            logger.info("Extracted and normalized metadata:")
+            for key, value in normalized_metadata.items():
+                logger.info(f"{key}: {value}")
+
+            return normalized_metadata
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Failed to extract metadata: {e}")
+        return None
+
+
+def resolve_fb_share_url(url: str) -> str:
+    """
+    Follow Facebook share link redirection to get actual video URL.
+    """
+    try:
+        import requests
+
+        response = requests.get(url, allow_redirects=True, timeout=10)
+        if response.url != url:
+            logger.info(f"🔁 Resolved FB share URL to: {response.url}")
+        return response.url
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to resolve Facebook share URL: {e}")
+        return url
 
 
 def load_app_config():

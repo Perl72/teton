@@ -77,7 +77,12 @@ def main():
             logger.error("Missing required argument: <video_url>")
             sys.exit(1)
 
+        
         url = sys.argv[1].strip()
+        url = fb.resolve_fb_share_url(url)
+
+        cookie_path = fb.resolve_path(platform_config.get("cookie_path"))
+
         params = {
             "download_path": download_path,
             "cookie_path": platform_config.get("cookie_path"),
